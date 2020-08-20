@@ -1,0 +1,8 @@
+numpy
+scipy
+tensorflow-gpu==1.14
+sklearn
+Pillow
+matplotlib
+jupyter
+tqdm
