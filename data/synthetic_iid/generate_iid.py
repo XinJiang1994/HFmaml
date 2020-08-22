@@ -6,6 +6,7 @@ import sys
 import random
 from tqdm import trange
 import math
+import collections
 
 
 NUM_USER = 100
@@ -21,7 +22,7 @@ def generate_synthetic(alpha, beta, iid):
     dimension = 60
     NUM_CLASS = 10
 
-    samples_per_user = np.random.lognormal(4, 2, (NUM_USER)).astype(int) + 16
+    samples_per_user = np.random.lognormal(0, 1, (NUM_USER)).astype(int) + 16
     print(samples_per_user)
     num_samples = np.sum(samples_per_user)
 
@@ -106,6 +107,13 @@ def main():
     #X, y = generate_synthetic(alpha=1, beta=1, iid=0)     # synthetic_fed (1,1)
     X, y = generate_synthetic(alpha=0, beta=0, iid=1)      # synthetic_IID
 
+    print('@generate iid line 109 y',y)
+    tot=[]
+    for udata in y:
+        for lab in udata:
+            tot.append(lab)
+    print(collections.Counter(tot))
+
 
     # Create data structure
     train_data = {'users': [], 'user_data':{}, 'num_samples':[]}
@@ -118,8 +126,8 @@ def main():
         random.shuffle(combined)
         X[i][:], y[i][:] = zip(*combined)
         num_samples = len(X[i])
-        train_len = int(0.9 * num_samples)
-        #train_len = 5
+        #train_len = int(0.9 * num_samples)
+        train_len = 5
         test_len = num_samples - train_len
 
         train_data['users'].append(uname)

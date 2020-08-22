@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-from flearn.models.FedmamlBaseModel import BaseModel
+from flearn.models.FederateBaseModel import BaseModel
 
 ### This is an implenmentation of Hessian Free maml meta learning algirithm propoesed by Sheng Yue####
 
@@ -15,9 +15,9 @@ class Model(BaseModel):
         '''
         features_train = tf.placeholder(tf.float32, shape=[None, 784], name='features_train')
         labels_train = tf.placeholder(tf.float32, shape=[None, 10], name='labels_train')
-        features_test = tf.placeholder(tf.float32, shape=[None, 784], name='features_test')
-        labels_test = tf.placeholder(tf.float32, shape=[None, 10], name='labels_test')
-        return features_train,labels_train,features_test,labels_test
+        # features_test = tf.placeholder(tf.float32, shape=[None, 784], name='features_test')
+        # labels_test = tf.placeholder(tf.float32, shape=[None, 10], name='labels_test')
+        return features_train,labels_train
 
     def forward_func(self,inp, weights, w_names , reuse = False):
 

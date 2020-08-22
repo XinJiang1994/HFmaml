@@ -52,11 +52,8 @@ class Client(object):
             2: comp: number of FLOPs executed in training process
             2: bytes_write: number of bytes transmitted
         '''
-        bytes_w = self.model.size
-        batch_size = len(self.data['y'])
-        soln, comp = self.model.solve_inner(self.data, num_epochs)#, batch_size)
-        bytes_r = self.model.size
-        return (self.samples, soln), (bytes_w, comp, bytes_r)
+        soln = self.model.solve_inner(self.data, num_epochs)#, batch_size)
+        return (self.samples, soln)
     #change train.data to data, num_sam to sam, batch to len
 
     def test_inner(self, num_epochs):  # , batch_size=10):
@@ -94,8 +91,8 @@ class Client(object):
             test_samples: int
         '''
         tot_correct, loss = self.model.test(self.data)
-        print('data shape: ', len(self.data))
-        print('num_data: ', self.samples)
+        # print('data shape: ', len(self.data))
+        # print('num_data: ', self.samples)
         return tot_correct, self.samples
 
     def test_test(self):
@@ -105,8 +102,8 @@ class Client(object):
             tot_correct: total #correct predictions
             test_samples: int
         '''
-        tot, loss = self.model.test_test(self.eval_data)
-        return  tot, loss, self.samples
+        tot, loss,pred = self.model.test_test(self.eval_data)
+        return  tot, loss, self.samples,pred
 
     def test_zeroth(self):
         zero_loss = self.model.zeroth_loss(self.eval_data)

@@ -8,7 +8,7 @@ from tqdm import trange
 import math
 
 
-NUM_USER = 100
+NUM_USER = 200
 
 def softmax(x):
     ex = np.exp(x)
@@ -21,7 +21,7 @@ def generate_synthetic(alpha, beta, iid):
     dimension = 60
     NUM_CLASS = 10
 
-    samples_per_user = np.random.lognormal(0, 1, (NUM_USER)).astype(int) + 600 #change 2 to 1, change 4 to 3
+    samples_per_user = np.random.lognormal(0, 1, (NUM_USER)).astype(int) + 16 #change 2 to 1, change 4 to 3
     print(samples_per_user)
     num_samples = np.sum(samples_per_user)
 
@@ -90,7 +90,19 @@ def main():
     #X, y = generate_synthetic(alpha=0.5, beta=0.5, iid=0) # synthetic_fed (0.5, 0.5)
     #X, y = generate_synthetic(alpha=1, beta=1, iid=0)     # synthetic_fed (1,1)
     #X, y = generate_synthetic(alpha=0, beta=0, iid=1)      # synthetic_IID
-
+    import collections
+    tot=[]
+    for udata in y:
+        for lab in udata:
+            tot.append(lab)
+    c=collections.Counter(tot)
+    sum=0
+    stat={}
+    for i in range(10):
+        sum+=c[i]
+    for i in range(10):
+        stat[i]=c[i]/sum
+    print(stat)
 
     # Create data structure
     train_data = {'users': [], 'user_data':{}, 'num_samples':[]}
@@ -104,7 +116,7 @@ def main():
         X[i][:], y[i][:] = zip(*combined)
         num_samples = len(X[i])
         #train_len = int(0.9 * num_samples)
-        train_len = 5
+        train_len = 10
         test_len = num_samples - train_len
 
         train_data['users'].append(uname)

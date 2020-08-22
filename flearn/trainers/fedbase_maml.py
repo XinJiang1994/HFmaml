@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 import os
-from flearn.models.client_HFmaml import Client
+from flearn.models.client_maml import Client
 from flearn.utils.model_utils import Metrics
 from flearn.utils.tf_utils import process_grad
 
@@ -27,8 +27,6 @@ class BaseFedarated(object):
         # initialize system metrics
         self.metrics = Metrics(self.clients, params)
 
-    #def __del__(self):
-     #   self.client_model.close()
 
     def setup_clients(self, dataset,params):
         '''instantiates clients based on given train and test data directories
@@ -138,6 +136,7 @@ class BaseFedarated(object):
         ### This is a very important part Noted by XinJiang #######
         total_weight = 0.0
         base = [0]*len(wsolns[0][1])
+        #print('@fedbase_maml line 139',wsolns)
         for (w, soln) in wsolns:  # w is the number of samples
             total_weight += w
             for i, v in enumerate(soln):

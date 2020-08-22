@@ -1,14 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="root@106.52.137.238:32001" autoUploadExternalChanges="true">
+  <component name="PublishConfigData" autoUpload="Always" serverName="root@172.16.6.5:32001" autoUploadExternalChanges="true">
     <serverData>
-      <paths name="root@106.52.137.238:32001">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/root/TC174611125/fmaml/HFmaml" local="$PROJECT_DIR$" />
-          </mappings>
-        </serverdata>
-      </paths>
       <paths name="root@172.16.6.5:32001">
         <serverdata>
           <mappings>

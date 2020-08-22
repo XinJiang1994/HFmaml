@@ -73,8 +73,8 @@ class BaseModel(object):
                 "classes": tf.argmax(input=logits_test_final, axis=1),
                 "probabilities": tf.nn.softmax(logits_test_final, name="softmax_tensor")
             }
-            eval_metric_ops = tf.count_nonzero(tf.equal(tf.cast(tf.argmax(input=self.labels_test, axis=1), dtype=tf.float32),
-                                                        tf.cast(self.predictions_test["classes"], dtype=tf.float32)))
+            eval_metric_ops = tf.reduce_mean(tf.cast(tf.equal(tf.cast(tf.argmax(input=self.labels_test, axis=1), dtype=tf.float32),
+                                                        tf.cast(self.predictions_test["classes"], dtype=tf.float32)),dtype=tf.float32))
         return eval_metric_ops, loss_test, loss_train, theta_i_kp1s, phy
 
     def get_input(self):
@@ -116,7 +116,7 @@ class BaseModel(object):
         batch_size_train = len(train_data['y'])
         batch_size_test = len(test_data['y'])
         self.k += 1
-        self.delta.load(1/(self.k+10)**2,self.sess)
+        self.delta.load(1.0/(self.k+10)**2,self.sess)
         X_train, y_train= batch_data_xin(train_data,batch_size_train)
         X_test, y_test=batch_data_xin(test_data,batch_size_test)
 
@@ -193,12 +193,12 @@ class BaseModel(object):
         X_train, y_train = batch_data_xin(train_data, batch_size_train)
         X_test, y_test = batch_data_xin(test_data, batch_size_test)
         with self.graph.as_default():
-            tot_correct, loss, train_loss = self.sess.run([self.eval_metric_ops, self.loss, self.train_loss],
+            acc, loss, train_loss = self.sess.run([self.eval_metric_ops, self.loss, self.train_loss],
                                                           feed_dict={self.features_train: X_train,
                                                                      self.labels_train: y_train,
                                                                      self.features_test: X_test,
                                                                      self.labels_test: y_test})
-        return tot_correct, loss
+        return acc, loss
 
     def test_test(self, data):
         '''
@@ -206,8 +206,8 @@ class BaseModel(object):
             data: dict of the form {'x': [list], 'y': [list]}
         '''
         with self.graph.as_default():
-            tot_correct, loss_train,preds = self.sess.run([self.eval_metric_ops, self.train_loss,self.predictions_test["classes"]],
+            acc, loss_train,preds = self.sess.run([self.eval_metric_ops, self.train_loss,self.predictions_test["classes"]],
                                                     feed_dict={self.features_train: data['x'], self.labels_train: data['y'],
                                                                self.features_test: data['x'], self.labels_test: data['y']})
-        return tot_correct, loss_train,preds
+        return acc, loss_train,preds
 

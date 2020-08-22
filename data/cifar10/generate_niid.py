@@ -92,11 +92,13 @@ def generateNIID(data_list,label_list):
 
     ###### CREATE USER DATA SPLIT #######
     # Assign 10 samples to each user
-    X = [[] for _ in range(100)]
-    y = [[] for _ in range(100)]
+    num_users=200
+
+    X = [[] for _ in range(num_users)]
+    y = [[] for _ in range(num_users)]
     idx = np.zeros(10, dtype=np.int64)
-    for user in range(100):
-        for j in range(2):
+    for user in range(num_users):
+        for j in range(5):
             l = (user+j)%10
             X[user] += data_list[l][idx[l]:idx[l]+5].tolist()
             #y[user] += (l*np.ones(5)).tolist()
@@ -107,11 +109,11 @@ def generateNIID(data_list,label_list):
 
     # Assign remaining sample by power law
     user = 0
-    props = np.random.lognormal(0, 0.2, (10,100,2)) #change 2.0 to 0.2
+    props = np.random.lognormal(0, 0.2, (10,100,5)) #change 2.0 to 0.2
     props = np.array([[[len(v)-4500]] for v in data_list])*props/np.sum(props,(1,2), keepdims=True)#change 100 to 5000
     #idx = 1000*np.ones(10, dtype=np.int64)
-    for user in trange(100):
-        for j in range(2):
+    for user in trange(num_users):
+        for j in range(5):
             l = (user+j)%10
             num_samples = int(props[l,user//10,j])
             #print(num_samples)
@@ -128,7 +130,7 @@ def generateNIID(data_list,label_list):
     test_data = {'users': [], 'user_data': {}, 'num_samples': []}
 
     # Setup 100 users
-    for i in trange(100, ncols=120):
+    for i in trange(num_users, ncols=120):
         uname = 'f_{0:05d}'.format(i)
 
         combined = list(zip(X[i], y[i]))
@@ -136,7 +138,7 @@ def generateNIID(data_list,label_list):
         X[i][:], y[i][:] = zip(*combined)
         num_samples = len(X[i])
         #train_len = int(0.9*num_samples)
-        train_len = 5
+        train_len = 10
         test_len = num_samples - train_len
 
         train_data['users'].append(uname)

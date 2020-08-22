@@ -3,7 +3,7 @@ import numpy as np
 
 class Client(object):
 
-    def __init__(self, id, group=None, train_data={'x':[],'y':[]}, eval_data={'x':[],'y':[]},model=None):
+    def __init__(self, id, group=None, train_data={'x':[],'y':[]}, eval_data={'x':[],'y':[]}, model=None):
         self.model = model
         self.id = id #integer
         self.group = group
@@ -13,24 +13,15 @@ class Client(object):
         self.num_samples = len(self.eval_data['y']) # why this could be zero, this leads to the problem, this is just one datapoint
         # need to check the definition of num_samples
 
+
     def set_params(self, model_params):
-        '''set model parameters '''
-        ### model_params is from the platform which is theta_k+1 in the paper.
+        '''set model parameters'''
         self.model.set_params(model_params)
 
 
     def get_params(self):
         '''get model parameters'''
-        ### get theta from clients####
         return self.model.get_params()
-
-    def set_yyk(self, yyk):
-        '''set model parameters '''
-        ### model_params is from the platform which is theta_k+1 in the paper.
-        self.model.set_yyk(yyk)
-
-    def get_yyk(self):
-        return self.get_yyk()
 
 
     def get_grads(self, model_len):
@@ -59,13 +50,8 @@ class Client(object):
             2: bytes_write: number of bytes transmitted
         '''
 
-        #bytes_w = self.model.size
-        bytes_w=0
-        soln ,yy_k= self.model.solve_inner(self.train_data, self.eval_data, num_epochs)
-        # bytes_r = self.model.size
-        bytes_r=0
-        comp=0
-        return (self.num_samples, soln), (bytes_w, comp, bytes_r),yy_k
+        soln= self.model.solve_inner(self.train_data, self.eval_data, num_epochs)
+        return (self.num_samples, soln)
         # change this, since for clients, two steps needed, not just solve_inner
         # add eval_data, but how to deal with epoch and batch
         # use same epoch, add another batch_size as input
@@ -91,8 +77,8 @@ class Client(object):
             tot_correct: total #correct predictions
             test_samples: int
         '''
-        acc, loss,preds = self.model.test_test(self.eval_data)
-        return acc, loss, self.num_samples, preds
+        acc, loss,pred = self.model.test_test(self.eval_data)
+        return acc, loss, self.num_samples
 
     def test_zeroth(self):
         zero_loss = self.model.zeroth_loss(self.eval_data)

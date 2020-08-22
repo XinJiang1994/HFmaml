@@ -32,20 +32,37 @@
 
 from flearn.utils.model_utils import read_data
 import os
-train_path = os.path.join('../data/synthetic_0.5_0.5', 'data', 'train')
-test_path = os.path.join('../data',  'synthetic_0.5_0.5', 'data', 'test')
-dataset = read_data(train_path, test_path)
+# train_path = os.path.join('../data/cifar10', 'data', 'train')
+# test_path = os.path.join('../data',  'cifar10', 'data', 'test')
+# dataset = read_data(train_path, test_path)
+#
+# print(type(dataset[3]))
+# print(dataset[3].keys())
+# print(dataset[3]['f_00000'].keys())
+# print('Training set')
+# for i in range(10):
+#     uname = 'f_{0:05d}'.format(i)
+#     print(dataset[2][uname]['y'])
+#
+#
+# print('testset')
+# for i in range(10):
+#     uname = 'f_{0:05d}'.format(i)
+#     print(dataset[3][uname]['y'])
 
-print(type(dataset[3]))
-print(dataset[3].keys())
-print(dataset[3]['f_00000'].keys())
-print('Training set')
-for i in range(10):
-    uname = 'f_{0:05d}'.format(i)
-    print(dataset[2][uname]['y'])
 
+import tensorflow as tf
 
-print('testset')
-for i in range(10):
-    uname = 'f_{0:05d}'.format(i)
-    print(dataset[3][uname]['y'])
+with  tf.variable_scope("foo", reuse=tf.AUTO_REUSE):
+    x=tf.get_variable(name='x',shape=(),initializer=tf.constant_initializer(9))
+    print(x.shape)
+    y=tf.get_variable(name='x',shape=())
+
+with tf.Session() as sess:
+    sess.run(tf.global_variables_initializer())
+    y.load(3,sess)
+    print(x,y)
+    print('x',sess.run(x))
+    print('y',sess.run(y))
+
+##需要定义一个scope，然后全部是用tf.get_variable创建变量

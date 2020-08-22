@@ -1,11 +1,12 @@
 import numpy as np
 from tqdm import trange, tqdm
 
-from .fedbase_maml import BaseFedarated
+from .fedbase_HFmaml import BaseFedarated
 
 class Server(BaseFedarated):
     def __init__(self, params, learner, dataset):
         print('Using Federated MAML to Train')
+        self.lamda=params['labmda']
         _, _, self.train_data, self.test_data = dataset
         super(Server, self).__init__(params, learner, dataset)
         ### @xinjiang set theta_c ### end
@@ -23,10 +24,13 @@ class Server(BaseFedarated):
                 # print(stats_train)
                 self.metrics.accuracies.append(stats)
                 self.metrics.train_accuracies.append(stats_train)
-                tqdm.write('At round {} training loss: {}'.format(i,np.mean(stats_train[4])))
+                tot_sams=np.sum(stats_train[2])
+                # tmp=np.sum([np.sum(self.lamda * ( th- thc ) ** 2) for th,thc in zip(self.latest_model,self.theta_c)])
+                losses=[ n /tot_sams * loss for n,loss in zip(stats_train[2],stats_train[4])]
+                tqdm.write('At round {} training loss: {}'.format(i,np.sum(losses)))
             # choose M clients prop to data size, here need to choose all
-            # selected_clients = self.select_clients(i, num_clients=self.clients_per_round)
-            selected_clients=self.clients
+            selected_clients = self.select_clients(i, num_clients=self.clients_per_round)
+            # selected_clients=self.clients
             csolns = [] # buffer for receiving client solutions
             yy_ks = []
             #for c in tqdm(selected_clients, desc='Client: ', leave=False, ncols=120):
@@ -43,6 +47,7 @@ class Server(BaseFedarated):
                 self.metrics.update(rnd=i, cid=c.id, stats=stats)
                 # update model
             self.latest_model = self.aggregate(csolns,yy_ks)
+            #print('@HFfmaml line48 latest_model',self.latest_model)
             # final test model
         stats = self.test()
         stats_train = self.train_error_and_loss()
@@ -61,7 +66,7 @@ class Server(BaseFedarated):
     ##@xinjiang
     def set_theta_c(self,params):
         theta_c = []
-        for it, par in enumerate(self.clients[0].get_params()):
+        for it, par in enumerate(self.client_model.get_params()):
             seed = 132 + params['seed'] + it
             ## the shape of params might different, for example: w--(784，10), b--(10,)
             len_c = 1
@@ -71,7 +76,7 @@ class Server(BaseFedarated):
             th_c_flat = np.random.rand(len_c)
             th_c = th_c_flat.reshape(par.shape)
             # print('th_c.shape',th_c.shape)
-            th_c = np.zeros_like(par)
+            # th_c = np.zeros_like(par)
             theta_c.append(th_c)
 
         self.theta_c=theta_c
