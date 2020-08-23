@@ -44,8 +44,8 @@ class BaseModel(object):
             g_and_v = self.optimizer1.compute_gradients(loss)
             grads_test, _ = zip(*g_and_v)
             optimize_op = self.optimizer1.apply_gradients(g_and_v, global_step=tf.train.get_global_step())
-            eval_metric_ops = tf.count_nonzero(tf.equal(tf.cast(tf.argmax(input=self.labels, axis=1), dtype=tf.float32),
-                                                        tf.cast(predictions_test["classes"], dtype=tf.float32)))
+            eval_metric_ops = tf.reduce_mean(tf.cast(tf.equal(tf.cast(tf.argmax(input=self.labels_test, axis=1), dtype=tf.float32),
+                                                        tf.cast(predictions_test["classes"], dtype=tf.float32)),dtype=tf.float32))
         return eval_metric_ops,predictions_test, loss, optimize_op
 
     def get_input(self):
@@ -113,11 +113,11 @@ class BaseModel(object):
         # print('@FederateBaseModel line 133 ',test_data)
 
         with self.graph.as_default():
-            tot_correct, loss = self.sess.run([self.eval_metric_ops, self.loss],
+            acc, loss = self.sess.run([self.eval_metric_ops, self.loss],
                                                           feed_dict={self.features: test_data['x'],
                                                                      self.labels: test_data['y'],
                                                                     })
-        return tot_correct, loss
+        return acc, loss
 
     def test_test(self, data):
         '''
@@ -125,9 +125,9 @@ class BaseModel(object):
             data: dict of the form {'x': [list], 'y': [list]}
         '''
         with self.graph.as_default():
-            tot_correct, loss,preds = self.sess.run([self.eval_metric_ops, self.loss,self.predictions_test["classes"]],
+            acc, loss,preds = self.sess.run([self.eval_metric_ops, self.loss,self.predictions_test["classes"]],
                                                     feed_dict={self.features: data['x'], self.labels: data['y'],})
-        return tot_correct, loss,preds
+        return acc, loss,preds
 
 
     def get_gradients(self, train_data, test_data, model_len):

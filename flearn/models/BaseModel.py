@@ -17,6 +17,7 @@ class BaseModel(object):
         self.seed=params['seed']
         self.graph = tf.Graph()
         self.theta_kp1 = None
+        self.optimizer2 = tf.train.GradientDescentOptimizer(0.003)
 
         with self.graph.as_default():
             self.sess = tf.Session(graph=self.graph)
@@ -24,7 +25,7 @@ class BaseModel(object):
             self.weights = self.construct_weights()  # weights is a list
             self.yy_k = self.construct_yy_k()
             tf.set_random_seed(123+self.seed)
-            self.delta = tf.Variable(1, dtype=tf.float32, trainable=False)
+            self.delta = tf.Variable(1000.0, dtype=tf.float32, trainable=False)
             self.features_train, self.labels_train, self.features_test, self.labels_test = self.get_input()
             self.eval_metric_ops, self.loss, self.train_loss, self.theta_i_kp1, self.fast_vars = self.optimize()
             self.saver = tf.train.Saver()
@@ -40,13 +41,18 @@ class BaseModel(object):
         with self.graph.as_default():
             w_names=[x.name.split(':',1)[0] for x in self.weights ]
             logits_train=self.forward_func(self.features_train,self.weights ,w_names,reuse=True)
+            # print('baseModel line 44 logits_train.shape', logits_train.shape)
             loss_train=self.loss_func(logits_train,self.labels_train)
+
             grad_w=tf.gradients(loss_train,self.weights)
             phy=[val-self.alpha * grad for grad,val in zip(grad_w,self.weights)]
 
             logits_test=self.forward_func(inp=self.features_test,weights=phy,w_names=w_names, reuse=True)
             loss_test=self.loss_func(logits_test,self.labels_test)
+
+
             grad_Ltest2phy=tf.gradients(loss_test,phy)
+            self.grad_Ltest2weight = tf.gradients(loss_test, self.weights)
 
             theta_kp1 = self.weights
 
@@ -63,6 +69,12 @@ class BaseModel(object):
             grad_2 = list(grad_2)
 
             g_kp1 = [(g1 - g2) / (2 * self.delta) for g1, g2 in zip(grad_1, grad_2)]
+
+            # hessian=list(tf.gradients(loss_test,self.weights))
+            grad_val=self.optimizer2.compute_gradients(loss_test,self.weights)
+            # print('@BaseModel line 71 hessian:',hessian)
+            # theta_i_kp1s=[thkp1 - 0.003*h for thkp1,h in zip(theta_kp1,hessian)]
+            # theta_i_kp1s=self.optimizer2.apply_gradients(grad_val)
             theta_i_kp1s = [tpkp1-(yy+self.w_i*(g_phy-self.alpha*gg))/(self.rho+self.mu_i) for tpkp1,yy,g_phy,gg in zip(theta_kp1,self.yy_k,grad_Ltest2phy,g_kp1)]
             # theta_i_kp1s = [tpkp1 - (yy + self.w_i * (g_phy - 0* gg)) / (self.rho + self.mu_i) for
             #                 tpkp1, yy, g_phy, gg in zip(theta_kp1, self.yy_k, grad_Ltest2phy, g_kp1)]
@@ -113,22 +125,24 @@ class BaseModel(object):
         return tf.reduce_mean(losses)
 
     def solve_inner(self, train_data, test_data, num_epochs):
-        batch_size_train = len(train_data['y'])
-        batch_size_test = len(test_data['y'])
         self.k += 1
         self.delta.load(1.0/(self.k+10)**2,self.sess)
-        X_train, y_train= batch_data_xin(train_data,batch_size_train)
-        X_test, y_test=batch_data_xin(test_data,batch_size_test)
+
+        X_train=train_data['x']
+        y_train=train_data['y']
+        X_test=test_data['x']
+        y_test=test_data['y']
 
         with self.graph.as_default():
             #print('@mclr lin 153: theta_kp1 before run', self.theta_kp1)
-            thikp1=self.sess.run(self.theta_i_kp1,
+            self.sess.run(self.theta_i_kp1,
                                   feed_dict={self.features_train: X_train, self.labels_train: y_train,
                                              self.features_test: X_test, self.labels_test: y_test})
             #print(thikp1)
-            self.update_yy_k(thikp1)
+            #self.update_yy_k(thikp1)
             # self.summary_writer.add_summary(summary, self.k)
-        soln = thikp1
+        # soln = thikp1
+        soln=self.get_params()
         yyk = self.get_yyk()
         return soln, yyk
 
@@ -210,4 +224,16 @@ class BaseModel(object):
                                                     feed_dict={self.features_train: data['x'], self.labels_train: data['y'],
                                                                self.features_test: data['x'], self.labels_test: data['y']})
         return acc, loss_train,preds
+    def get_gradient_phy_w(self,train_data,test_data):
+        X_train = train_data['x']
+        y_train = train_data['y']
+        X_test = test_data['x']
+        y_test = test_data['y']
+
+        with self.graph.as_default():
+            # print('@mclr lin 153: theta_kp1 before run', self.theta_kp1)
+            grads = self.sess.run(self.grad_Ltest2weight,
+                                   feed_dict={self.features_train: X_train, self.labels_train: y_train,
+                                              self.features_test: X_test, self.labels_test: y_test})
+        return grads
 

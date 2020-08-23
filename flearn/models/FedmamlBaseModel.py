@@ -92,9 +92,11 @@ class BaseModel(object):
         batch_size_train = len(train_data['y'])
         batch_size_test = len(test_data['y'])
         for _ in range(num_epochs):
-            for X_train, y_train in batch_data(train_data, batch_size_train):
-                for X_test, y_test in batch_data(test_data, batch_size_test):
-                    with self.graph.as_default():
+            X_train=train_data['x']
+            y_train=train_data['y']
+            X_test=test_data['x']
+            y_test=test_data['y']
+            with self.graph.as_default():
                         self.sess.run(self.test_op,
                                       feed_dict={self.features_train: X_train, self.labels_train: y_train,
                                                  self.features_test: X_test, self.labels_test: y_test})

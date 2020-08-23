@@ -233,9 +233,9 @@ def fmaml_test(trainer, learner, train_data, test_data, params, user_name, weigh
     # soln = weight
     # test_client.set_params(soln)
 
-    tot_corect, test_loss, samp_num, preds = test_client.test_test()
+    acc, test_loss, samp_num, preds = test_client.test_test()
 
-    return test_loss, tot_corect / samp_num, preds
+    return test_loss, acc, preds
 
 
 if __name__ == '__main__':

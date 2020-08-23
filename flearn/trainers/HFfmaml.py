@@ -5,6 +5,7 @@ from .fedbase_HFmaml import BaseFedarated
 
 class Server(BaseFedarated):
     def __init__(self, params, learner, dataset):
+
         print('Using Federated MAML to Train')
         self.lamda=params['labmda']
         _, _, self.train_data, self.test_data = dataset
@@ -16,6 +17,7 @@ class Server(BaseFedarated):
         print('Training with {} workers ---'.format(self.clients_per_round))
         ## num_rounds is k
         ## num_epochs should set 1 in HFfmaml
+        loss_history=[]
         for i in trange(self.num_rounds, desc='Round: ', ncols=120):
             # test model
             if i % self.eval_every == 0:
@@ -28,6 +30,7 @@ class Server(BaseFedarated):
                 # tmp=np.sum([np.sum(self.lamda * ( th- thc ) ** 2) for th,thc in zip(self.latest_model,self.theta_c)])
                 losses=[ n /tot_sams * loss for n,loss in zip(stats_train[2],stats_train[4])]
                 tqdm.write('At round {} training loss: {}'.format(i,np.sum(losses)))
+                loss_history.append(np.sum(losses))
             # choose M clients prop to data size, here need to choose all
             selected_clients = self.select_clients(i, num_clients=self.clients_per_round)
             # selected_clients=self.clients
@@ -35,16 +38,20 @@ class Server(BaseFedarated):
             yy_ks = []
             #for c in tqdm(selected_clients, desc='Client: ', leave=False, ncols=120):
             for ci,c in enumerate(selected_clients):
+                if ci==0:
+                    grads=c.get_grads()
+                    grads_sum0=[np.sum(x**2) for x in grads]
+                    print('@HFfmaml line 41 sum grads:',np.sum(grads_sum0))
                 # communicate the latest model
                 c.model.receive_global_theta(self.latest_model)
                 # solve minimization locally
                 # nodes optimization
-                soln, stats,yy_k = c.solve_inner(num_epochs=self.num_epochs)
+                soln,yy_k = c.solve_inner(num_epochs=self.num_epochs)
                 # gather solutions from client
                 csolns.append(soln)
                 yy_ks.append(yy_k)
                 # track communication cost
-                self.metrics.update(rnd=i, cid=c.id, stats=stats)
+                # self.metrics.update(rnd=i, cid=c.id, stats=stats)
                 # update model
             self.latest_model = self.aggregate(csolns,yy_ks)
             #print('@HFfmaml line48 latest_model',self.latest_model)
@@ -63,6 +70,7 @@ class Server(BaseFedarated):
         # save server model
         self.metrics.write()
         self.save()
+        return loss_history
     ##@xinjiang
     def set_theta_c(self,params):
         theta_c = []
@@ -99,8 +107,17 @@ class Server(BaseFedarated):
             for i in range(n):
                 tmp_v += (yy_ks[i][j]+self.rho * solns[i][j])
             sum_yy_theta.append(tmp_v)
-        theta_kp1=[]
-        for ltc,syt in zip(l_th_c,sum_yy_theta):
-            theta_kp1.append((ltc+syt)/(2*self.labmda + sum_rho))
+        theta_kp1=[(ltc+syt)/(2*self.labmda + sum_rho) for ltc,syt in zip(l_th_c,sum_yy_theta)]
+        # test code
+        # total_weight = 0.0
+        # base = [0] * len(wsolns[0][1])
+        #print('@fedbase_maml line 139', wsolns)
+        # for (w, soln) in wsolns:  # w is the number of samples
+        #     total_weight += w
+        #     for i, v in enumerate(soln):
+        #         base[i] += w * v.astype(np.float64)
+        #
+        # theta_kp1 = [v / total_weight for v in base]
+
         return theta_kp1
 

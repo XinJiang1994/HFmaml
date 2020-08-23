@@ -33,9 +33,9 @@ class Client(object):
         return self.get_yyk()
 
 
-    def get_grads(self, model_len):
+    def get_grads(self):
         '''get model gradient'''
-        return self.model.get_gradients(self.train_data, self.eval_data, model_len)
+        return self.model.get_gradient_phy_w(self.train_data, self.eval_data)
         # why is train_data?
 
 
@@ -59,13 +59,8 @@ class Client(object):
             2: bytes_write: number of bytes transmitted
         '''
 
-        #bytes_w = self.model.size
-        bytes_w=0
         soln ,yy_k= self.model.solve_inner(self.train_data, self.eval_data, num_epochs)
-        # bytes_r = self.model.size
-        bytes_r=0
-        comp=0
-        return (self.num_samples, soln), (bytes_w, comp, bytes_r),yy_k
+        return (self.num_samples, soln), yy_k
         # change this, since for clients, two steps needed, not just solve_inner
         # add eval_data, but how to deal with epoch and batch
         # use same epoch, add another batch_size as input

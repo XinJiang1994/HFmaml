@@ -37,9 +37,9 @@ def read_options():
     parser.add_argument('--optimizer',default='HFfmaml',help='name of optimizer;',type=str,choices=OPTIMIZERS)
     parser.add_argument('--dataset',default='mnist',help='name of dataset;',type=str,choices=DATASETS)
     parser.add_argument('--model',default='mclr2',help='name of model;',type=str)
-    parser.add_argument('--num_rounds',default=100,help='number of rounds to simulate;',type=int)
+    parser.add_argument('--num_rounds',default=150,help='number of rounds to simulate;',type=int)
     parser.add_argument('--eval_every',default=1,help='evaluate every rounds;',type=int)
-    parser.add_argument('--clients_per_round',default=80,help='number of clients trained per round;',type=int)
+    parser.add_argument('--clients_per_round',default=50,help='number of clients trained per round;',type=int)
     parser.add_argument('--batch_size',default=10,help='batch size when clients train on data;',type=int)
     parser.add_argument('--num_epochs',default=5,help='number of epochs when clients train on data;',type=int) #20
     parser.add_argument('--alpha',default=0.01,help='learning rate for inner solver;',type=float)
@@ -47,7 +47,7 @@ def read_options():
     # parser.add_argument('--mu',help='constant for prox;',type=float,default=0.01)
     parser.add_argument('--seed',default=0,help='seed for randomness;',type=int)
     parser.add_argument('--labmda',default=0,help='labmda for regularizer',type=int)
-    parser.add_argument('--rho',default=0.5,help='rho for regularizer',type=int)
+    parser.add_argument('--rho',default=5,help='rho for regularizer',type=int)
     parser.add_argument('--mu_i',default=0,help='mu_i for optimizer',type=int)
 
     try: parsed = vars(parser.parse_args())
@@ -173,15 +173,14 @@ def main():
         p1[i]=c_train[i]/s1
         p2[i]=c_target[i]/s2
 
-
     print(p1)
     print(p2)
 
-
-
     #、 o00000007理论 call appropriate trainer
     t = optimizer(options, learner, dataset)
-    t.train()
+    loss_history=t.train()
+    plot_losses(loss_history)
+
 
     print('after training, start testing')
 
@@ -231,6 +230,10 @@ def fmaml_test(trainer, learner, train_data, test_data, params, user_name, weigh
     acc, test_loss, samp_num,preds = test_client.test_test()
 
     return test_loss,acc,preds
+
+import matplotlib.pyplot as plt
+def plot_losses(losses):
+    plt.plot(losses)
     
 if __name__ == '__main__':
     main()

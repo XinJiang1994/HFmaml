@@ -90,10 +90,10 @@ class Client(object):
             tot_correct: total #correct predictions
             test_samples: int
         '''
-        tot_correct, loss = self.model.test(self.data)
+        acc, loss = self.model.test(self.data)
         # print('data shape: ', len(self.data))
         # print('num_data: ', self.samples)
-        return tot_correct, self.samples
+        return acc, self.samples
 
     def test_test(self):
         '''tests current model on local eval_data
@@ -102,8 +102,8 @@ class Client(object):
             tot_correct: total #correct predictions
             test_samples: int
         '''
-        tot, loss,pred = self.model.test_test(self.eval_data)
-        return  tot, loss, self.samples,pred
+        acc, loss,pred = self.model.test_test(self.eval_data)
+        return  acc, loss, self.samples,pred
 
     def test_zeroth(self):
         zero_loss = self.model.zeroth_loss(self.eval_data)

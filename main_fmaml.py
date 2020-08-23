@@ -49,7 +49,7 @@ def read_options():
     parser.add_argument('--num_rounds',
                     help='number of rounds to simulate;',
                     type=int,
-                    default=100)
+                    default=150)
     parser.add_argument('--eval_every',
                     help='evaluate every ____ rounds;',
                     type=int,
@@ -57,7 +57,7 @@ def read_options():
     parser.add_argument('--clients_per_round',
                     help='number of clients trained per round;',
                     type=int,
-                    default=80)
+                    default=50)
     parser.add_argument('--batch_size',
                     help='batch size when clients train on data;',
                     type=int,
@@ -65,7 +65,7 @@ def read_options():
     parser.add_argument('--num_epochs', 
                     help='number of epochs when clients train on data;',
                     type=int,
-                    default=20) #20
+                    default=1) #20
     parser.add_argument('--alpha',
                     help='learning rate for inner solver;',
                     type=float,

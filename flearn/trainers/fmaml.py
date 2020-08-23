@@ -25,6 +25,8 @@ class Server(BaseFedarated):
     def train(self):
         '''Train using Federated MAML'''
         print('Training with {} workers ---'.format(self.clients_per_round))
+        print('@fmaml line28 num_rounds',self.num_rounds)
+        print('@fmaml line29 self.clients_per_round',self.clients_per_round)
         for i in trange(self.num_rounds, desc='Round: ', ncols=120):
             # test model
             if i % self.eval_every == 0:
