@@ -223,33 +223,8 @@ def fmaml_test(trainer, learner, train_data, test_data, params, user_name, num_l
 
     test_client.set_params(soln)
 
-    # client_params_new = test_client.test_train(train_data, num_epochs=1)
-    #trainer.client_model.set_params(trainer.latest_model)
-    #test_client.set_params(soln)
     acc, test_loss, _ = test_client.test_test()
-    #client_params = test_client.test_train()
-    #client_model.set_params(client_params)
 
-    # num_samples = []
-    # tot_correct = []
-    # ct, ns = test_client.test()
-    # tot_correct.append(ct * 1.0)
-    # num_samples.append(ns)
-    #
-    # ids = [test_client.id]
-    # groups = [test_client.group]
-    # stats = [ids, groups, num_samples, tot_correct]
-    #_, test_loss, _ = test_client.train_error_and_loss()
-    # #test_loss = test_client.test_zeroth()
-    # print('stats_train: ', test_loss)
-    # from flearn.utils.model_utils import Metrics
-    # test_metric = Metrics([test_client], params)
-    # test_metric.accuracies.append(stats)
-    # # self.metrics.train_accuracies.append(stats_train)
-    #
-    # tqdm.write(
-    #     'Local updates {} Final accuracy: {}'.format(num_local_updates, np.sum(stats[3]) * 1.0 / np.sum(stats[2])))
-    #tqdm.write('Local updates {} Final loss: {}'.format(num_local_updates, test_loss))
     return acc,test_loss
     
 if __name__ == '__main__':

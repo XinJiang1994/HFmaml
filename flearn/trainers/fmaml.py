@@ -15,12 +15,6 @@ class Server(BaseFedarated):
         _, _, self.train_data, self.test_data = dataset
         #self.inner_opt = zip(self.inner_opt1, self.inner_opt2)
         super(Server, self).__init__(params, learner, dataset)
-        ### @xinjiang
-        # set theta_c
-        ### end
-        self.set_theta_c(params)
-
-
 
     def train(self):
         '''Train using Federated MAML'''
