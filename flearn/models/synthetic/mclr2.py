@@ -18,6 +18,7 @@ class Model(BaseModel):
             labels_test = tf.placeholder(tf.float32, shape=[None, 10], name='labels_test')
         return features_train,labels_train,features_test,labels_test
 
+
     def forward_func(self,inp, weights, w_names , reuse = False):
 
         '''
@@ -27,20 +28,20 @@ class Model(BaseModel):
         :return: model y
          when overload this function you should make w=dict(zip(w_names,weights))
         '''
-        with self.graph.as_default():
-            weights = dict(zip(w_names, weights))
-            hidden = tf.matmul(inp, weights['w']) + weights['b']
+        weights = dict(zip(w_names, weights))
+        hidden = tf.matmul(inp, weights['w1']) + weights['b1']
+        hidden=lrelu(hidden)
+        hidden = tf.matmul(hidden, weights['w2']) + weights['b2']
         return hidden
 
     def construct_weights(self):
         '''
         :return:weights
         '''
-        with self.graph.as_default():
-            w = tf.Variable(tf.truncated_normal([60, self.num_classes], stddev=0.01), name='w')
-            b = tf.Variable(tf.zeros([self.num_classes]), name='b')
-        # with self.graph.as_default():
-        #     r = np.load('/root/TC174611125/fmaml/HFmaml/weights.npz')
-        #     w = tf.Variable(r['w'], name='w')
-        #     b = tf.Variable(r['b'], name='b')
-        return [w,b]
+        w1 = tf.Variable(tf.truncated_normal([60, 1024], stddev=0.01), name='w1')
+        b1 = tf.Variable(tf.zeros([1024]), name='b1')
+        w2 = tf.Variable(tf.truncated_normal([1024, self.num_classes], stddev=0.01), name='w2')
+        b2 = tf.Variable(tf.zeros([self.num_classes]), name='b2')
+        return [w1, b1, w2, b2]
+def lrelu(x, leak=0.2, name="lrelu"):
+  return tf.maximum(x, leak*x)

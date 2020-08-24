@@ -24,9 +24,9 @@ class Server(BaseFedarated):
         for i in trange(self.num_rounds, desc='Round: ', ncols=120):
             # test model
             if i % self.eval_every == 0:
-                stats = self.test()
+                # stats = self.test()
                 stats_train = self.train_error_and_loss()
-                self.metrics.accuracies.append(stats)
+                # self.metrics.accuracies.append(stats)
                 self.metrics.train_accuracies.append(stats_train)
                 # tqdm.write('At round {} accuracy: {}'.format(i, np.sum(stats[3]) * 1.0 / np.sum(stats[2])))
                 # tqdm.write('At round {} training accuracy: {}'.format(i, np.sum(stats_train[3]) * 1.0 / np.sum(

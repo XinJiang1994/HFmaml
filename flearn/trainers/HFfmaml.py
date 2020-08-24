@@ -41,7 +41,7 @@ class Server(BaseFedarated):
                 if ci==0:
                     grads=c.get_grads()
                     grads_sum0=[np.sum(x**2) for x in grads]
-                    print('@HFfmaml line 41 sum grads:',np.sum(grads_sum0))
+                    print('@HFfmaml line 41 sum grads:',np.sqrt(np.sum(grads_sum0)))
                 # communicate the latest model
                 c.model.receive_global_theta(self.latest_model)
                 # solve minimization locally
@@ -70,6 +70,7 @@ class Server(BaseFedarated):
         # save server model
         self.metrics.write()
         self.save()
+
         return loss_history
     ##@xinjiang
     def set_theta_c(self,params):
@@ -88,36 +89,4 @@ class Server(BaseFedarated):
             theta_c.append(th_c)
 
         self.theta_c=theta_c
-    ##@xinjiang
-    # Overload the parent function which is in fedbase_maml.py
-    # note: solns means solutions which are the trainable params in the model.
-    def aggregate(self, wsolns,yy_ks):
-        solns=[]
-        for w,slon in wsolns:
-            solns.append(slon)
-        l_th_c=[2*self.labmda*t for t in self.theta_c]
-
-        n=len(solns) # totally n nodes
-        m=len(solns[0]) #[w,b]
-        # all rhos are the same, so we can just use self.rho
-        sum_rho = self.rho * n
-        sum_yy_theta=[]
-        for j in range(m):
-            tmp_v= np.zeros_like(solns[0][j])
-            for i in range(n):
-                tmp_v += (yy_ks[i][j]+self.rho * solns[i][j])
-            sum_yy_theta.append(tmp_v)
-        theta_kp1=[(ltc+syt)/(2*self.labmda + sum_rho) for ltc,syt in zip(l_th_c,sum_yy_theta)]
-        # test code
-        # total_weight = 0.0
-        # base = [0] * len(wsolns[0][1])
-        #print('@fedbase_maml line 139', wsolns)
-        # for (w, soln) in wsolns:  # w is the number of samples
-        #     total_weight += w
-        #     for i, v in enumerate(soln):
-        #         base[i] += w * v.astype(np.float64)
-        #
-        # theta_kp1 = [v / total_weight for v in base]
-
-        return theta_kp1
 

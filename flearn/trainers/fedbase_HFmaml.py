@@ -129,21 +129,21 @@ class BaseFedarated(object):
         num_clients = max(num_clients, len(self.clients))
         np.random.seed(round)
         return np.random.choice(self.clients, num_clients, replace=False) #, p=pk)
+    def aggregate(self, wsolns,yy_ks):
+        solns=[]
+        for w,slon in wsolns:
+            solns.append(slon)
+        l_th_c=[2*self.labmda*t for t in self.theta_c]
 
-
-    def aggregate(self, wsolns):
-        ###### platform aggregation operation #########
-        ### This is a very important part Noted by XinJiang #######
-        total_weight = 0.0
-        base = [0]*len(wsolns[0][1])
-        print('@fedbase_maml line 139',wsolns)
-        for (w, soln) in wsolns:  # w is the number of samples
-            total_weight += w
-            for i, v in enumerate(soln):
-                base[i] += w*v.astype(np.float64)
-
-        averaged_soln = [v / total_weight for v in base]
-
-
-        return averaged_soln
-
+        n=len(solns) # totally n nodes
+        m=len(solns[0]) #[w,b]
+        # all rhos are the same, so we can just use self.rho
+        sum_rho = self.rho * n
+        sum_yy_theta=[]
+        for j in range(m):
+            tmp_v= np.zeros_like(solns[0][j])
+            for i in range(n):
+                tmp_v += (yy_ks[i][j]+self.rho * solns[i][j])
+            sum_yy_theta.append(tmp_v)
+        theta_kp1=[(ltc+syt)/(2*self.labmda + sum_rho) for ltc,syt in zip(l_th_c,sum_yy_theta)]
+        return theta_kp1

@@ -8,7 +8,7 @@ from tqdm import trange
 import math
 
 
-NUM_USER = 50
+NUM_USER = 200
 
 def softmax(x):
     ex = np.exp(x)

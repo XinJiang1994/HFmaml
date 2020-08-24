@@ -65,7 +65,7 @@ def read_options():
     parser.add_argument('--num_epochs', 
                     help='number of epochs when clients train on data;',
                     type=int,
-                    default=1) #20
+                    default=10) #20
     parser.add_argument('--alpha',
                     help='learning rate for inner solver;',
                     type=float,
@@ -122,26 +122,8 @@ def read_options():
     return parsed, learner, optimizer
 
 def reshape_label(label):
-    if label == 0:
-        new_label = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    if label == 1:
-        new_label = [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    if label == 2:
-        new_label = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    if label == 3:
-        new_label = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    if label == 4:
-        new_label = [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    if label == 5:
-        new_label = [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0]
-    if label == 6:
-        new_label = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
-    if label == 7:
-        new_label = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
-    if label == 8:
-        new_label = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
-    if label == 9:
-        new_label = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+    new_label=[0]*10
+    new_label[int(label)]=1
     return new_label
 
 def main():
