@@ -70,8 +70,8 @@ class Client(object):
     # loss part may need to change
     # training error is testing error, do not need to test again
     def train_error_and_loss(self):
-        tot_correct, loss = self.model.test(self.train_data, self.eval_data)
-        return tot_correct, loss, self.num_samples
+        acc, loss = self.model.test(self.train_data, self.eval_data)
+        return acc, loss, self.num_samples
 
 
     def test(self):

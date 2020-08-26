@@ -9,6 +9,8 @@ from flearn.utils.model_utils import read_data,read_data_xin
 from flearn.models.client_HFmaml import Client
 from tqdm import  tqdm
 
+from scipy import io
+
 # GLOBAL PARAMETERS
 OPTIMIZERS = ['HFfmaml','fmaml', 'fedavg', 'fedprox', 'feddane', 'fedddane', 'fedsgd']
 DATASETS = ['sent140', 'nist', 'shakespeare', 'mnist',
@@ -37,17 +39,17 @@ def read_options():
     parser.add_argument('--optimizer',default='HFfmaml',help='name of optimizer;',type=str,choices=OPTIMIZERS)
     parser.add_argument('--dataset',default='cifar10',help='name of dataset;',type=str,choices=DATASETS)
     parser.add_argument('--model',default='cnn',help='name of model;',type=str)
-    parser.add_argument('--num_rounds',default=800,help='number of rounds to simulate;',type=int)
+    parser.add_argument('--num_rounds',default=50,help='number of rounds to simulate;',type=int)
     parser.add_argument('--eval_every',default=1,help='evaluate every rounds;',type=int)
     parser.add_argument('--clients_per_round',default=80,help='number of clients trained per round;',type=int)
     parser.add_argument('--batch_size',default=10,help='batch size when clients train on data;',type=int)
     parser.add_argument('--num_epochs',default=5,help='number of epochs when clients train on data;',type=int) #20
     parser.add_argument('--alpha',default=0.01,help='learning rate for inner solver;',type=float)
-    parser.add_argument('--beta',default=0.000000000000001,help='meta rate for inner solver;',type=float)
+    parser.add_argument('--beta',default=0.003,help='meta rate for inner solver;',type=float)
     # parser.add_argument('--mu',help='constant for prox;',type=float,default=0.01)
     parser.add_argument('--seed',default=0,help='seed for randomness;',type=int)
-    parser.add_argument('--labmda',default=0,help='labmda for regularizer',type=int)
-    parser.add_argument('--rho',default=25,help='rho for regularizer',type=int)
+    parser.add_argument('--labmda',default=40,help='labmda for regularizer',type=int)
+    parser.add_argument('--rho',default=0.2,help='rho for regularizer',type=int)
     parser.add_argument('--mu_i',default=0,help='mu_i for optimizer',type=int)
 
     try: parsed = vars(parser.parse_args())
@@ -139,8 +141,8 @@ def main():
             for i in range(len(dataset[3][user]['y'])):
                 dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i])
     random.shuffle(dataset[0])
-    test_user=dataset[0][180:]
-    del dataset[0][180:]
+    test_user=dataset[0][80:]
+    del dataset[0][80:]
 
     sams_train=[]
     sams_taget=[]
@@ -179,12 +181,14 @@ def main():
     #、 o00000007理论 call appropriate trainer
     t = optimizer(options, learner, dataset)
     loss_history=t.train()
+    io.savemat('losses.mat',{'losses':loss_history})
     plot_losses(loss_history)
 
 
     print('after training, start testing')
 
     client_params = t.latest_model
+
     weight = client_params
 
     loss_test=dict()
@@ -216,6 +220,9 @@ def fmaml_test(trainer, learner, train_data, test_data, params, user_name, weigh
 
     test_client = Client(user_name, [], train_data, test_data, client_model)
     test_client.set_params(weight)
+    if params['labmda']==0:
+        w_names = test_client.model.get_param_names()
+        save_weights(weight, w_names)
     #r = np.load('/root/TC174611125/fmaml/HFmaml/weights.npz')
 
     #print('################:',np.sum(weight[0]-r['w']))
@@ -234,6 +241,15 @@ def fmaml_test(trainer, learner, train_data, test_data, params, user_name, weigh
 import matplotlib.pyplot as plt
 def plot_losses(losses):
     plt.plot(losses)
-    
+
+
+def save_weights(vars,names):
+    vars=dict(zip(names,vars))
+    io.savemat('weights.mat',vars)
+
+
+
+
+
 if __name__ == '__main__':
     main()

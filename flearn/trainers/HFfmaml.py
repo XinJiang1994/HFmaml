@@ -11,7 +11,7 @@ class Server(BaseFedarated):
         _, _, self.train_data, self.test_data = dataset
         super(Server, self).__init__(params, learner, dataset)
         ### @xinjiang set theta_c ### end
-        self.set_theta_c(params)
+        self.set_theta_c()
 
     def train(self):
         print('Training with {} workers ---'.format(self.clients_per_round))
@@ -73,20 +73,16 @@ class Server(BaseFedarated):
 
         return loss_history
     ##@xinjiang
-    def set_theta_c(self,params):
-        theta_c = []
-        for it, par in enumerate(self.client_model.get_params()):
-            seed = 132 + params['seed'] + it
-            ## the shape of params might different, for example: w--(784，10), b--(10,)
-            len_c = 1
-            for s in par.shape:
-                len_c *= s
-            np.random.seed(seed)
-            th_c_flat = np.random.rand(len_c)
-            th_c = th_c_flat.reshape(par.shape)
-            # print('th_c.shape',th_c.shape)
-            # th_c = np.zeros_like(par)
-            theta_c.append(th_c)
-
+    def set_theta_c(self):
+        theta_c=load_weights('weights.mat')
+        #theta_c=self.client_model.get_params()
+        #print('@HFmaml line 78 theta_c:', theta_c)
         self.theta_c=theta_c
 
+from scipy import io
+def load_weights(wPath='weights.mat'):
+    params=io.loadmat(wPath)
+    vars=list(params.values())[3:]
+    vars=[np.squeeze(x) for x in vars]
+    #print('@HFmaml line 85',vars)
+    return vars

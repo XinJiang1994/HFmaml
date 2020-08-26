@@ -158,52 +158,23 @@ def generateNIID(data_list,label_list,classNumForEachUser=5):
     with open(test_path, 'w') as outfile:
         json.dump(test_data, outfile)
 
-datapath='./data/'
-if not os.path.exists(datapath):
-    os.mkdir(datapath)
 
-def gen_test():
-    filenames = ['batches.meta', 'data_batch_1', 'data_batch_2', 'data_batch_3', 'data_batch_4', 'data_batch_5',
-                 'test_batch']
-    data_folder = '/root/TC174611125/fmaml/HFmaml/data/cifar10/cifar10/'
-    data_paths = [os.path.join(data_folder, f) for f in filenames]
-    dataset = {'data': [], 'labels': []}
-    for p in data_paths[1:]:
-        cifars = unpickle(p)
-        data = cifars[b'data']
-        # data = data.reshape(10000, 3, 32, 32)
-        labels = cifars[b'labels']
-        dataset['data'].append(data)
-        dataset['labels'].append(labels)
-    dataset['data']=np.concatenate(dataset['data'])
-    dataset['labels']=np.concatenate(dataset['labels'])
-    dataset['data']=norm(dataset['data'])
 
-    train_data = {'users': [], 'user_data': {}, 'num_samples': []}
-    test_data = {'users': [], 'user_data': {}, 'num_samples': []}
-    data_tmp=dataset['data']
-    label_tmp=dataset['labels']
-    for i in tqdm(range(100)):
-        d=data_tmp[i:(i+1)*600]
-        l=label_tmp[i:(i+1)*600]
-        uname='f_{0:05d}'.format(i)
-        train_data['users'].append(uname)
-        train_data['user_data'][uname] = {'x': d[:480], 'y': l[:480]}
-        test_data['users'].append(uname)
-        test_data['user_data'][uname] = {'x': d[480:], 'y': l[480:]}
-        userdatapath=os.path.join(datapath,uname)
-        if not os.path.exists(userdatapath):
-            os.mkdir(userdatapath)
-        trainX_fname=os.path.join(userdatapath,'trainX.npy')
-        testX_fname=os.path.join(userdatapath,'testX.npy')
+def gen_test(data_list,label_list,num_users=100,a=100,division_ratio=[1/3,1/3,1/3],savepath = './cifar10/data/'):
+    '''
+        data_list是一个list，里面保存的是每个类别的数据，例如mnist就是10个类别，data_list就存了10个元素，
+        每个元素是一个ndarray,每个ndarray存的是一个类别的样本，是展开存储的，每一行是一个样本
+        :param data_list: an ndarray
+        :param label_list:
+        :return:
+    '''
 
-        trainY_fname=os.path.join(userdatapath,'trainY.npy')
-        testY_fname=os.path.join(userdatapath,'testY.npy')
+    if not os.path.exists(savepath):
+        os.mkdir(savepath)
+    dataset
 
-        np.save(trainX_fname,d[:480])
-        np.save(trainY_fname,l[:480])
-        np.save(testX_fname,d[:480])
-        np.save(testY_fname,l[:480])
+
+
 
 if __name__=='__main__':
     # gen_test()

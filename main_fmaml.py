@@ -22,6 +22,8 @@ MODEL_PARAMS = {
     'nist.mclr': (62,),  # num_classes, should be changed to 62 when using EMNIST
     'mnist.mclr': (10), # num_classes change
     'mnist.cnn': (10,),  # num_classes
+    'cifar10.cnn': (10,),
+    'cifar10.cnn_fmaml': (10,),
     'shakespeare.stacked_lstm': (80, 80, 256), # seq_len, emb_dim, num_hidden
     'synthetic_fed.mclr': (10), # num_classes changed, remove,
     'synthetic.mclr': (10), # num_classes changed, remove,
@@ -41,15 +43,15 @@ def read_options():
                     help='name of dataset;',
                     type=str,
                     choices=DATASETS,
-                    default='mnist')
+                    default='cifar10')
     parser.add_argument('--model',
                     help='name of model;',
                     type=str,
-                    default='mclr')
+                    default='cnn_fmaml')
     parser.add_argument('--num_rounds',
                     help='number of rounds to simulate;',
                     type=int,
-                    default=150)
+                    default=50)
     parser.add_argument('--eval_every',
                     help='evaluate every ____ rounds;',
                     type=int,
@@ -57,7 +59,7 @@ def read_options():
     parser.add_argument('--clients_per_round',
                     help='number of clients trained per round;',
                     type=int,
-                    default=50)
+                    default=80)
     parser.add_argument('--batch_size',
                     help='batch size when clients train on data;',
                     type=int,
@@ -82,10 +84,6 @@ def read_options():
                     help='seed for randomness;',
                     type=int,
                     default=0)
-    parser.add_argument('--num_local_updates',
-                    help='number of rounds to simulate;',
-                    type=int,
-                    default=1)
 
     try: parsed = vars(parser.parse_args())
     except IOError as msg: parser.error(str(msg))
@@ -99,6 +97,8 @@ def read_options():
     # load selected model
     if parsed['dataset'].startswith("synthetic"):  # all synthetic_fed datasets use the same model
         model_path = '%s.%s.%s.%s' % ('flearn', 'models', 'synthetic', parsed['model']) #changed
+    elif parsed['dataset'].startswith("cifar10"):
+        model_path = '%s.%s.%s.%s' % ('flearn', 'models', 'cifar10', parsed['model'])
     else:
         model_path = '%s.%s.%s.%s' % ('flearn', 'models', 'mnist', parsed['model']) #parsed['dataset']
 
@@ -126,6 +126,12 @@ def reshape_label(label):
     new_label[int(label)]=1
     return new_label
 
+def reshape_features(x):
+    x=np.array(x)
+    x=np.transpose(x.reshape(3, 32, 32), [1, 2, 0])
+    # print(x.shape)
+    return x
+
 def main():
     # suppress tf warnings
     tf.logging.set_verbosity(tf.logging.WARN)
@@ -134,25 +140,43 @@ def main():
     options, learner, optimizer = read_options()
 
     # read data
-    train_path = os.path.join('data', options['dataset'], 'data', 'train')
-    test_path = os.path.join('data', options['dataset'], 'data', 'test')
-    dataset = read_data(train_path, test_path)
+    if options['dataset']=='cifar10':
+        data_path = os.path.join('data', options['dataset'], 'data')
+        # dataset = read_data_xin(data_path)  # return clients, groups, train_data, test_data
+        train_path = os.path.join('data', options['dataset'], 'data', 'train')
+        test_path = os.path.join('data', options['dataset'], 'data', 'test')
+        dataset = read_data(train_path, test_path)
 
-    for user in dataset[0]:
-        for i in range(len(dataset[2][user]['y'])):
-            dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i])
+        for user in dataset[0]:
+            for i in range(len(dataset[2][user]['y'])):
+                dataset[2][user]['x'][i]=reshape_features(dataset[2][user]['x'][i])
+                dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i])
 
-    #print('reshape labels in test dataset')
-    for user in dataset[0]:
-        for i in range(len(dataset[3][user]['y'])):
-            dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i])
+        # print('reshape labels in test dataset')
+        for user in dataset[0]:
+            for i in range(len(dataset[3][user]['y'])):
+                dataset[3][user]['x'][i] = reshape_features(dataset[3][user]['x'][i])
+                dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i])
+    else:
+        train_path = os.path.join('data', options['dataset'], 'data', 'train')
+        test_path = os.path.join('data', options['dataset'], 'data', 'test')
+        dataset = read_data(train_path, test_path) # return clients, groups, train_data, test_data
+        #print(dataset[3]['f_00000']['y'])
+        #print('@main_HFfaml.py line 152####',dataset)
 
+        for user in dataset[0]:
+            for i in range(len(dataset[2][user]['y'])):
+                dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i])
 
+        #print('reshape labels in test dataset')
+        for user in dataset[0]:
+            for i in range(len(dataset[3][user]['y'])):
+                dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i])
 
     num_users = len(dataset[0])
     # print('num users: ',num_users)
-    test_user = dataset[0][79:num_users-1]
-    del dataset[0][79:num_users-1]
+    test_user = dataset[0][80:]
+    del dataset[0][80:]
 
 
     # call appropriate trainer

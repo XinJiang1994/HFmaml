@@ -198,8 +198,6 @@ class BaseModel(object):
         '''
 
         # print(train_data)
-        batch_size_train = len(train_data['y'])
-        batch_size_test = len(test_data['y'])
 
         with self.graph.as_default():
             acc, loss, train_loss = self.sess.run([self.eval_metric_ops, self.loss, self.train_loss],
@@ -231,4 +229,8 @@ class BaseModel(object):
                                    feed_dict={self.features_train: X_train, self.labels_train: y_train,
                                               self.features_test: X_test, self.labels_test: y_test})
         return grads
+
+    def get_param_names(self):
+        w_names = [x.name.split(':', 1)[0] for x in self.weights]
+        return w_names
 

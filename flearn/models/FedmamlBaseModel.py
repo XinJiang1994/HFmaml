@@ -14,7 +14,7 @@ class BaseModel(object):
         self.k = 0
         self.alpha = params['alpha']
         self.beta = params['beta']
-        self.num_local_updates = params['num_local_updates']
+        # self.num_local_updates = params['num_local_updates']
         self.seed = params['seed']
         self.graph = tf.Graph()
         self.theta_kp1 = None
@@ -43,7 +43,7 @@ class BaseModel(object):
             # grad_Ltest2phy=tf.gradients(loss_test,phy)
 
 
-            logits_final=self.forward_func(inp=self.features_test,weights=phy,w_names=w_names)
+            logits_final=self.forward_func(inp=self.features_test,weights=self.weights,w_names=w_names)
             predictions_test = {
                 "classes": tf.argmax(input=logits_final, axis=1),
                 "probabilities": tf.nn.softmax(logits_test, name="softmax_tensor")
@@ -84,8 +84,6 @@ class BaseModel(object):
         return tf.reduce_mean(losses)
 
     def solve_inner(self, train_data, test_data, num_epochs):
-        batch_size_train = len(train_data['y'])
-        batch_size_test = len(test_data['y'])
         for _ in range(num_epochs):
             X_train = train_data['x']
             y_train = train_data['y']
@@ -127,9 +125,6 @@ class BaseModel(object):
         Args:
             data: dict of the form {'x': [list], 'y': [list]}
         '''
-        batch_size_train = len(train_data['y'])
-        batch_size_test = len(test_data['y'])
-        loss = np.zeros(np.size(test_data['y']))
 
         with self.graph.as_default():
             acc, loss, train_loss = self.sess.run([self.eval_metric_ops, self.loss, self.train_loss],
