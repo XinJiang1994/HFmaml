@@ -4,7 +4,7 @@ import importlib
 import random
 import os
 import tensorflow as tf
-from flearn.utils.model_utils import read_data,read_data_xin
+from flearn.utils.model_utils import read_data
 
 from flearn.models.client_HFmaml import Client
 from tqdm import  tqdm
@@ -39,7 +39,7 @@ def read_options():
     parser.add_argument('--optimizer',default='HFfmaml',help='name of optimizer;',type=str,choices=OPTIMIZERS)
     parser.add_argument('--dataset',default='cifar10',help='name of dataset;',type=str,choices=DATASETS)
     parser.add_argument('--model',default='cnn',help='name of model;',type=str)
-    parser.add_argument('--num_rounds',default=50,help='number of rounds to simulate;',type=int)
+    parser.add_argument('--num_rounds',default=150,help='number of rounds to simulate;',type=int)
     parser.add_argument('--eval_every',default=1,help='evaluate every rounds;',type=int)
     parser.add_argument('--clients_per_round',default=80,help='number of clients trained per round;',type=int)
     parser.add_argument('--batch_size',default=10,help='batch size when clients train on data;',type=int)
@@ -48,8 +48,8 @@ def read_options():
     parser.add_argument('--beta',default=0.003,help='meta rate for inner solver;',type=float)
     # parser.add_argument('--mu',help='constant for prox;',type=float,default=0.01)
     parser.add_argument('--seed',default=0,help='seed for randomness;',type=int)
-    parser.add_argument('--labmda',default=40,help='labmda for regularizer',type=int)
-    parser.add_argument('--rho',default=0.2,help='rho for regularizer',type=int)
+    parser.add_argument('--labmda',default=0,help='labmda for regularizer',type=int)
+    parser.add_argument('--rho',default=0.5,help='rho for regularizer',type=int)
     parser.add_argument('--mu_i',default=0,help='mu_i for optimizer',type=int)
 
     try: parsed = vars(parser.parse_args())
@@ -70,6 +70,7 @@ def read_options():
         model_path = '%s.%s.%s.%s' % ('flearn', 'models', 'mnist', parsed['model']) #parsed['dataset']
 
     mod = importlib.import_module(model_path)
+
     learner = getattr(mod, 'Model')
 
     # load selected trainer
@@ -181,7 +182,7 @@ def main():
     #、 o00000007理论 call appropriate trainer
     t = optimizer(options, learner, dataset)
     loss_history=t.train()
-    io.savemat('losses.mat',{'losses':loss_history})
+    io.savemat('losses_OPT_{}_Dataset{}_round_{}_rho_{}.mat'.format(options['optimizer'],options['dataset'],options['num_rounds'],options['rho']), {'losses': loss_history})
     plot_losses(loss_history)
 
 

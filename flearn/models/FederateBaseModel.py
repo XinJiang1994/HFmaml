@@ -13,10 +13,8 @@ class BaseModel(object):
         self.k = 0
         self.alpha=params['alpha']
         self.beta=params['beta']
-        self.num_local_updates=params['num_local_updates']
         self.seed=params['seed']
         self.graph = tf.Graph()
-        self.theta_kp1 = None
         self.optimizer1 = tf.train.GradientDescentOptimizer(self.alpha)
 
         with self.graph.as_default():
@@ -44,7 +42,7 @@ class BaseModel(object):
             g_and_v = self.optimizer1.compute_gradients(loss)
             grads_test, _ = zip(*g_and_v)
             optimize_op = self.optimizer1.apply_gradients(g_and_v, global_step=tf.train.get_global_step())
-            eval_metric_ops = tf.reduce_mean(tf.cast(tf.equal(tf.cast(tf.argmax(input=self.labels_test, axis=1), dtype=tf.float32),
+            eval_metric_ops = tf.reduce_mean(tf.cast(tf.equal(tf.cast(tf.argmax(input=self.labels, axis=1), dtype=tf.float32),
                                                         tf.cast(predictions_test["classes"], dtype=tf.float32)),dtype=tf.float32))
         return eval_metric_ops,predictions_test, loss, optimize_op
 
@@ -128,6 +126,13 @@ class BaseModel(object):
             acc, loss,preds = self.sess.run([self.eval_metric_ops, self.loss,self.predictions_test["classes"]],
                                                     feed_dict={self.features: data['x'], self.labels: data['y'],})
         return acc, loss,preds
+
+    def fast_adapt(self, train_data, num_epochs):
+        with self.graph.as_default():
+            self.sess.run(self.optimize_op,
+                        feed_dict={self.features: train_data['x'], self.labels: train_data['y']})
+            soln=self.get_params()
+        return soln
 
 
     def get_gradients(self, train_data, test_data, model_len):

@@ -35,8 +35,7 @@ class Client(object):
 
     def get_grads(self):
         '''get model gradient'''
-        return self.model.get_gradient_phy_w(self.train_data, self.eval_data)
-        # why is train_data?
+        return self.model.get_gradient_phy_w(self.train_data,self.eval_data)
 
 
     def solve_grad(self):

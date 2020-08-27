@@ -8,6 +8,7 @@ def lrelu(x, leak=0.2, name="lrelu"):
 
 
 def weight_variable(shape, name):
+    tf.set_random_seed(123)
     initial = tf.truncated_normal(shape, stddev=0.1)
     return tf.Variable(initial, name=name)
 
@@ -25,7 +26,7 @@ class Model(BaseModel):
         self.num_classes=params['num_classes']
         self.channels=1
         self.stride=[1,1,1,1]
-        super().__init__(params)
+        super(Model, self).__init__(params)
 
     def get_input(self):
         '''

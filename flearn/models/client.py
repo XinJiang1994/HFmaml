@@ -120,7 +120,7 @@ class Client(object):
 
     def fast_adapt(self, num_epochs):
         #batch_size = len(self.train_data['y'])
-        soln,_ = self.model.fast_adapt(self.train_data, num_epochs)  # , batch_size)
+        soln = self.model.fast_adapt(self.train_data, num_epochs)  # , batch_size)
         return soln
 
     #def test_loss(self):

@@ -9,6 +9,7 @@ from tensorflow.python import debug as tf_debug
 
 class BaseModel(object):
     def __init__(self,params):
+        # print('@BaseModel line 17 test init')
         self.k = 0
         self.alpha=params['alpha']
         self.rho = params['rho']

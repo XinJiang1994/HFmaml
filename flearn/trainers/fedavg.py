@@ -16,6 +16,7 @@ class Server(BaseFedarated):
     def train(self):
         '''Train using Federated Averaging'''
         print('Training with {} workers ---'.format(self.clients_per_round))
+        loss_history=[]
         for i in trange(self.num_rounds, desc='Round: ', ncols=120):
             # test model
             if i % self.eval_every == 0:
@@ -23,9 +24,13 @@ class Server(BaseFedarated):
                 stats_train = self.train_error_and_loss()
                 self.metrics.accuracies.append(stats)
                 self.metrics.train_accuracies.append(stats_train)
+                tot_sams = np.sum(stats_train[2])
+                # tmp=np.sum([np.sum(self.lamda * ( th- thc ) ** 2) for th,thc in zip(self.latest_model,self.theta_c)])
+                losses = [n / tot_sams * loss for n, loss in zip(stats_train[2], stats_train[4])]
+                tqdm.write('At round {} training loss: {}'.format(i, np.sum(losses)))
+                loss_history.append(np.sum(losses))
                 # tqdm.write('At round {} accuracy: {}'.format(i, np.sum(stats[3])*1.0/np.sum(stats[2])))
                 # tqdm.write('At round {} training accuracy: {}'.format(i, np.sum(stats_train[3])*1.0/np.sum(stats_train[2])))
-                tqdm.write('At round {} training loss: {}'.format(i, np.dot(stats_train[4], stats_train[2])*1.0/np.sum(stats_train[2])))
 
                 # save server model
                 self.metrics.write()
@@ -63,3 +68,4 @@ class Server(BaseFedarated):
         # save server model
         self.metrics.write()
         self.save()
+        return loss_history

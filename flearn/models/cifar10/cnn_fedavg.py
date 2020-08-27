@@ -1,7 +1,6 @@
 import numpy as np
 import tensorflow as tf
-from flearn.models.FedmamlBaseModel import BaseModel
-
+from flearn.models.FederateBaseModel import BaseModel
 
 
 def lrelu(x, leak=0.2, name="lrelu"):
@@ -27,17 +26,15 @@ class Model(BaseModel):
         self.num_classes=params['num_classes']
         self.channels=1
         self.stride=[1,1,1,1]
-        super().__init__(params)
+        super(Model, self).__init__(params)
 
     def get_input(self):
         '''
         :return:the placeholders of input: features_train,labels_train,features_test,labels_test
         '''
-        features_train = tf.placeholder(tf.float32, shape=[None, 32,32,3], name='features_train')
-        labels_train = tf.placeholder(tf.float32, shape=[None, 10], name='labels_train')
-        features_test = tf.placeholder(tf.float32, shape=[None, 32,32,3], name='features_test')
-        labels_test = tf.placeholder(tf.float32, shape=[None,10], name='labels_test')
-        return features_train,labels_train,features_test,labels_test
+        features = tf.placeholder(tf.float32, shape=[None, 32,32,3], name='features_train')
+        labels = tf.placeholder(tf.float32, shape=[None, 10], name='labels_train')
+        return features,labels
 
     def forward_func(self,inp, weights, w_names , reuse = False):
 

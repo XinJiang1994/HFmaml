@@ -8,6 +8,7 @@ from flearn.utils.model_utils import read_data
 
 from flearn.models.client_maml import Client
 from tqdm import trange, tqdm
+from scipy import io
 
 # GLOBAL PARAMETERS
 OPTIMIZERS = ['fmaml', 'fedavg', 'fedprox', 'feddane', 'fedddane', 'fedsgd']
@@ -67,7 +68,7 @@ def read_options():
     parser.add_argument('--num_epochs', 
                     help='number of epochs when clients train on data;',
                     type=int,
-                    default=10) #20
+                    default=8) #20
     parser.add_argument('--alpha',
                     help='learning rate for inner solver;',
                     type=float,
@@ -75,7 +76,7 @@ def read_options():
     parser.add_argument('--beta',
                     help='meta rate for inner solver;',
                     type=float,
-                    default=0.003)
+                    default=0.01)
     parser.add_argument('--mu',
                     help='constant for prox;',
                     type=float,
@@ -181,7 +182,8 @@ def main():
 
     # call appropriate trainer
     t = optimizer(options, learner, dataset)
-    t.train()
+    loss_history=t.train()
+    io.savemat('losses_OPT_{}_Dataset{}_round_{}_L{}.mat'.format(options['optimizer'],options['dataset'],options['num_rounds'],options['num_epochs']), {'losses': loss_history})
 
     print('after training, start testing')
 

@@ -10,5 +10,5 @@ def load_weights(wPath='weights.mat'):
 
 params=io.loadmat('weights.mat')
 
-print(load_weights(wPath='weights.mat'))
+print(params)
 
