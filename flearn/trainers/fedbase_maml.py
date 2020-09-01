@@ -55,20 +55,20 @@ class BaseFedarated(object):
 
     def train_error_and_loss(self):
         num_samples = []
-        tot_correct = []
+        accs = []
         losses = []
 
         for c in self.clients:
             #c.set_params(self.latest_model)
-            ct, cl, ns= c.train_error_and_loss()
-            tot_correct.append(ct * 1.0)
+            acc, cl, ns= c.train_error_and_loss()
+            accs.append(acc * 1.0)
             num_samples.append(ns)
             losses.append(cl * 1.0)
         
         ids = [c.id for c in self.clients]
         groups = [c.group for c in self.clients]
 
-        return ids, groups, num_samples, tot_correct, losses
+        return ids, groups, num_samples, accs, losses
 
 
     def show_grads(self):  
@@ -126,7 +126,7 @@ class BaseFedarated(object):
         Return:
             list of selected clients objects
         '''
-        num_clients = max(num_clients, len(self.clients))
+        num_clients = min(num_clients, len(self.clients))
         np.random.seed(round)
         return np.random.choice(self.clients, num_clients, replace=False) #, p=pk)
 

@@ -55,20 +55,22 @@ class BaseFedarated(object):
 
     def train_error_and_loss(self):
         num_samples = []
-        tot_correct = []
+        accs_train = []
+        accs_test = []
         losses = []
 
         for c in self.clients:
             #c.set_params(self.latest_model)
-            ct, cl, ns= c.train_error_and_loss()
-            tot_correct.append(ct * 1.0)
+            a_train,a_test, cl, ns= c.train_error_and_loss()
+            accs_train.append(a_train * 1.0)
+            accs_test.append(a_test)
             num_samples.append(ns)
             losses.append(cl * 1.0)
         
         ids = [c.id for c in self.clients]
         groups = [c.group for c in self.clients]
 
-        return ids, groups, num_samples, tot_correct, losses
+        return ids, groups, num_samples, accs_test, losses,accs_train
 
 
     def show_grads(self):  
@@ -101,16 +103,18 @@ class BaseFedarated(object):
         '''tests self.latest_model on given clients
         '''
         num_samples = []
-        tot_correct = []
+        acc_test = []
+        acc_train =[]
         #self.client_model.set_params(self.latest_model)
         for c in self.clients:
             c.set_params(self.latest_model)
-            ct, ns = c.test()
-            tot_correct.append(ct * 1.0)
+            a_train,a_test, ns = c.test()
+            acc_train.append(a_train * 1.0)
+            acc_test.append(a_test)
             num_samples.append(ns)
         ids = [c.id for c in self.clients]
         groups = [c.group for c in self.clients]
-        return ids, groups, num_samples, tot_correct
+        return ids, groups, num_samples, acc_test,acc_train
 
     def save(self):
         pass
@@ -126,7 +130,7 @@ class BaseFedarated(object):
         Return:
             list of selected clients objects
         '''
-        num_clients = max(num_clients, len(self.clients))
+        num_clients = min(num_clients, len(self.clients))
         np.random.seed(round)
         return np.random.choice(self.clients, num_clients, replace=False) #, p=pk)
     def aggregate(self, wsolns,yy_ks):

@@ -10,9 +10,7 @@ from tqdm import trange
 
 class BaseModel(object):
     def __init__(self,params):
-        self.k = 0
         self.alpha=params['alpha']
-        self.beta=params['beta']
         self.seed=params['seed']
         self.graph = tf.Graph()
         self.optimizer1 = tf.train.GradientDescentOptimizer(self.alpha)

@@ -100,10 +100,10 @@ def generateNIID(data_list,label_list,classNumForEachUser=5):
     for user in range(num_users):
         for j in range(classNumForEachUser):
             l = (user+j)%10
-            X[user] += data_list[l][idx[l]:idx[l]+10].tolist()
+            X[user] += data_list[l][idx[l]:idx[l]+5].tolist()
             #y[user] += (l*np.ones(5)).tolist()
-            y[user] += label_list[l][idx[l]:idx[l]+10].tolist()
-            idx[l] += 10
+            y[user] += label_list[l][idx[l]:idx[l]+5].tolist()
+            idx[l] += 5
             #print(y[user])
     print(idx)
 
@@ -113,7 +113,7 @@ def generateNIID(data_list,label_list,classNumForEachUser=5):
     props = np.array([[[len(v)-4500]] for v in data_list])*props/np.sum(props,(1,2), keepdims=True)#change 100 to 5000
     #idx = 1000*np.ones(10, dtype=np.int64)
     for user in trange(num_users):
-        for j in range(5):
+        for j in range(2):
             l = (user+j)%10
             num_samples = int(props[l,user//10,j])
             #print(num_samples)
@@ -138,7 +138,7 @@ def generateNIID(data_list,label_list,classNumForEachUser=5):
         X[i][:], y[i][:] = zip(*combined)
         num_samples = len(X[i])
         #train_len = int(0.9*num_samples)
-        train_len = 10
+        train_len = 5
         test_len = num_samples - train_len
 
         train_data['users'].append(uname)

@@ -26,3 +26,5 @@ def iid_divide(l, g):
     for i in range(num_big_groups):
         glist.append(l[bi+group_size*i:bi+group_size*(i+1)])
     return glist
+
+

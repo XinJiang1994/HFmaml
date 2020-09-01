@@ -11,11 +11,13 @@ class BaseFedarated(object):
         # transfer parameters to self
         for key, val in params.items(): setattr(self, key, val);
 
+        self.learner=learner
+
         # create worker nodes
         tf.reset_default_graph()
         self.opt1 = params['alpha']
         self.client_model = learner(params)
-        self.clients = self.setup_clients(dataset, self.client_model)
+        self.clients = self.setup_clients(dataset, params)
         print('{} Clients in Total'.format(len(self.clients)))
         self.latest_model = self.client_model.get_params()
 
@@ -25,7 +27,7 @@ class BaseFedarated(object):
     #def __del__(self):
     #    self.client_model.close()
 
-    def setup_clients(self, dataset, model=None):
+    def setup_clients(self, dataset, params=None):
         '''instantiates clients based on given train and test data directories
 
         Return:
@@ -34,7 +36,11 @@ class BaseFedarated(object):
         users, groups, train_data, test_data = dataset
         if len(groups) == 0:
             groups = [None for _ in users]
-        all_clients = [Client(u, g, train_data[u], test_data[u], model) for u, g in zip(users, groups)]
+        # all_clients = [Client(u, g, train_data[u], test_data[u], model) for u, g in zip(users, groups)]
+        all_clients=[]
+        for u, g in zip(users, groups):
+            model = self.learner(params)
+            all_clients.append(Client(u, g, train_data[u], test_data[u], model))
         return all_clients
 
     def train_error_and_loss(self):

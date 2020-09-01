@@ -36,9 +36,9 @@ def plot_result(filenames,fig_size=(14,8)):
     plt.show()
 
 if __name__=='__main__':
-    filenames = ['losses_OPT_HFfmaml_Datasetcifar10_round_150_rho_0.5.mat', 'losses_OPT_fmaml_Datasetcifar10_round_150.mat',
-                 'losses_OPT_fedavg_Datasetcifar10_round_150.mat']
-
+    # filenames = ['losses_OPT_HFfmaml_Datasetcifar10_round_150_rho_0.5.mat', 'losses_OPT_fmaml_Datasetcifar10_round_150.mat',
+    #              'losses_OPT_fedavg_Datasetcifar10_round_150.mat']
+    filenames=['losses_OPT_HFfmaml_Datasetcifar10_round_500_rho_1.mat']
     plot_result(filenames)
 
 

@@ -45,12 +45,17 @@ class BaseModel(object):
 
             logits_final=self.forward_func(inp=self.features_test,weights=self.weights,w_names=w_names)
             predictions_test = {
-                "classes": tf.argmax(input=logits_final, axis=1),
-                "probabilities": tf.nn.softmax(logits_test, name="softmax_tensor")
+                "classes": tf.argmax(input=tf.nn.softmax(logits_final, name="softmax_tensor"), axis=1),
+                "probabilities": tf.nn.softmax(logits_final, name="softmax_tensor")
             }
             g_and_v = self.optimizer2.compute_gradients(loss_test)
             grads_test, _ = zip(*g_and_v)
             test_op = self.optimizer2.apply_gradients(g_and_v, global_step=tf.train.get_global_step())
+            pred_test = tf.argmax(input=logits_test, axis=1)
+            self.test_acc = tf.reduce_mean(
+                tf.cast(tf.equal(tf.cast(tf.argmax(input=self.labels_test, axis=1), dtype=tf.float32),
+                                 tf.cast(pred_test, dtype=tf.float32)), dtype=tf.float32))
+
             eval_metric_ops = tf.reduce_mean(
                 tf.cast(tf.equal(tf.cast(tf.argmax(input=self.labels_test, axis=1), dtype=tf.float32),
                                  tf.cast(predictions_test["classes"], dtype=tf.float32)), dtype=tf.float32))
@@ -127,7 +132,7 @@ class BaseModel(object):
         '''
 
         with self.graph.as_default():
-            acc, loss, train_loss = self.sess.run([self.eval_metric_ops, self.loss, self.train_loss],
+            acc, loss, train_loss = self.sess.run([self.test_acc, self.loss, self.train_loss],
                                                   feed_dict={self.features_train: train_data['x'],
                                                              self.labels_train: train_data['y'],
                                                              self.features_test: test_data['x'],

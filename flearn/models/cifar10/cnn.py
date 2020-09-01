@@ -26,6 +26,7 @@ class Model(BaseModel):
         self.num_classes=params['num_classes']
         self.channels=1
         self.stride=[1,1,1,1]
+        self.training=True
         super(Model, self).__init__(params)
 
     def get_input(self):
@@ -51,6 +52,7 @@ class Model(BaseModel):
 
         h_conv1 = conv2d(inp, weights['W_conv1'], stride=[1, 1, 1, 1], padding='SAME')
         h_conv1 = tf.nn.bias_add(h_conv1, weights['b_conv1'])
+        # h_conv1=tf.layers.batch_normalization(h_conv1,training=self.training)
         h_conv1 = lrelu(h_conv1)
         h_pool1 = tf.nn.max_pool2d(h_conv1, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding='SAME',
                                    name='Max_pool1')
@@ -61,11 +63,11 @@ class Model(BaseModel):
         h_pool2 = tf.nn.max_pool2d(h_conv2, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding='SAME',
                                    name='Max_pool2')
 
-        # h_conv3 = conv2d(h_pool2, weights['W_conv3'], stride=self.stride)
-        # h_conv3 = tf.nn.bias_add(h_conv3, weights['b_conv3'])
-        # h_conv3 = lrelu(h_conv3)
-        # h_pool3 = tf.nn.max_pool2d(h_conv3, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding='SAME',
-        #                            name='Max_pool3')
+        h_conv3 = conv2d(h_pool2, weights['W_conv3'], stride=self.stride)
+        h_conv3 = tf.nn.bias_add(h_conv3, weights['b_conv3'])
+        h_conv3 = lrelu(h_conv3)
+        h_pool3 = tf.nn.avg_pool(h_conv3, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding='SAME',
+                                   name='avg_pool1')
         #
         # h_conv4 = conv2d(h_pool3, weights['W_conv4'], stride=self.stride)
         # h_conv4 = tf.nn.bias_add(h_conv4, weights['b_conv4'])
@@ -73,11 +75,11 @@ class Model(BaseModel):
         # h_pool4 = tf.nn.avg_pool(h_conv4, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding='SAME',
         #                       name='avg_pool1')
         # print(h_pool4)
-        h_pool_shape=h_pool2.get_shape().as_list()
+        h_pool_shape=h_pool3.get_shape().as_list()
         h = h_pool_shape[1]
         w = h_pool_shape[2]
         c = h_pool_shape[3]
-        flatten= tf.reshape(h_pool2, [-1, h * w * c])
+        flatten= tf.reshape(h_pool3, [-1, h * w * c])
         logits=tf.matmul(flatten, weights['W_fc1'])
         logits=tf.nn.bias_add(logits,weights['b_fc1'])
 
@@ -92,21 +94,24 @@ class Model(BaseModel):
         :return:weights
         '''
 
-        W_conv1 = weight_variable([3, 3, 3, 64], name='W_conv1')
-        b_conv1 = bias_variable([64], name='b_conv1')
+        W_conv1 = weight_variable([3, 3, 3, 32], name='W_conv1')
+        b_conv1 = bias_variable([32], name='b_conv1')
 
-        W_conv2 = weight_variable([3, 3, 64, 128], name='W_conv2')
-        b_conv2 = bias_variable([128], name='b_conv2')
+        W_conv2 = weight_variable([3, 3, 32, 64], name='W_conv2')
+        b_conv2 = bias_variable([64], name='b_conv2')
 
-        # W_conv3 = weight_variable([3, 3, 64, 128], name='W_conv3')
-        # b_conv3 = bias_variable([128], name='b_conv3')
+        W_conv3 = weight_variable([3, 3, 64, 128], name='W_conv3')
+        b_conv3 = bias_variable([128], name='b_conv3')
         #
         # W_conv4 = weight_variable([3, 3, 128, 256], name='W_conv4')
         # b_conv4 = bias_variable([256], name='b_conv4')
 
-        W_fc1 = weight_variable([8192,10], name='W_fc1')
+        W_fc1 = weight_variable([2048,10], name='W_fc1')
         b_fc1 = bias_variable([10], name='b_fc1')
 
         # weights=[W_conv1,b_conv1,W_conv2,b_conv2,W_conv3,b_conv3,W_conv4,b_conv4,W_fc1,b_fc1]
-        weights = [W_conv1, b_conv1, W_conv2, b_conv2, W_fc1, b_fc1]
+        weights = [W_conv1, b_conv1, W_conv2, b_conv2,W_conv3,b_conv3, W_fc1, b_fc1]
         return weights
+
+    def setTraining(self,isTraining):
+        self.training=isTraining

@@ -1,6 +1,24 @@
 import json
 import numpy as np
 import os
+from scipy import io
+import numpy as np
+import tensorflow as tf
+
+def lrelu(x, leak=0.2, name="lrelu"):
+    return tf.maximum(x, leak * x)
+
+
+def load_weights(wPath='weights.mat'):
+    params=io.loadmat(wPath)
+    vars=list(params.values())[3:]
+    vars=[np.squeeze(x) for x in vars]
+    #print('@HFmaml line 85',vars)
+    return vars
+
+def save_weights(vars,names,savepath):
+    vars=dict(zip(names,vars))
+    io.savemat(savepath,vars)
 
 def batch_data_xin(data,batch_size):
     data_x = data['x']

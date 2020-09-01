@@ -9,11 +9,12 @@ from flearn.utils.model_utils import read_data
 from flearn.models.client_maml import Client
 from tqdm import trange, tqdm
 from scipy import io
+os.environ['TF_CPP_MIN_LOG_LEVEL']='3'
 
 # GLOBAL PARAMETERS
 OPTIMIZERS = ['fmaml', 'fedavg', 'fedprox', 'feddane', 'fedddane', 'fedsgd']
 DATASETS = ['sent140', 'nist', 'shakespeare', 'mnist',
-'synthetic_iid', 'synthetic_0_0', 'synthetic_0.5_0.5', 'synthetic_1_1']  # NIST is EMNIST in the paepr
+'synthetic_iid', 'synthetic_0_0', 'synthetic_0.5_0.5', 'synthetic_1_1','cifar10']  # NIST is EMNIST in the paepr
 
 
 MODEL_PARAMS = {
@@ -60,7 +61,7 @@ def read_options():
     parser.add_argument('--clients_per_round',
                     help='number of clients trained per round;',
                     type=int,
-                    default=80)
+                    default=40)
     parser.add_argument('--batch_size',
                     help='batch size when clients train on data;',
                     type=int,
@@ -68,7 +69,7 @@ def read_options():
     parser.add_argument('--num_epochs', 
                     help='number of epochs when clients train on data;',
                     type=int,
-                    default=8) #20
+                    default=5) #20
     parser.add_argument('--alpha',
                     help='learning rate for inner solver;',
                     type=float,
@@ -76,7 +77,7 @@ def read_options():
     parser.add_argument('--beta',
                     help='meta rate for inner solver;',
                     type=float,
-                    default=0.01)
+                    default=0.1)
     parser.add_argument('--mu',
                     help='constant for prox;',
                     type=float,
@@ -85,6 +86,7 @@ def read_options():
                     help='seed for randomness;',
                     type=int,
                     default=0)
+    parser.add_argument('--adapt_num', default=1, help='mu_i for optimizer', type=int)
 
     try: parsed = vars(parser.parse_args())
     except IOError as msg: parser.error(str(msg))
@@ -134,6 +136,7 @@ def reshape_features(x):
     return x
 
 def main():
+    tf.reset_default_graph()
     # suppress tf warnings
     tf.logging.set_verbosity(tf.logging.WARN)
     
@@ -176,14 +179,17 @@ def main():
 
     num_users = len(dataset[0])
     # print('num users: ',num_users)
-    test_user = dataset[0][80:]
-    del dataset[0][80:]
+    np.random.seed(12)
+    random.shuffle(dataset[0])
+    test_user = dataset[0][40:]
+    del dataset[0][40:]
 
 
     # call appropriate trainer
     t = optimizer(options, learner, dataset)
     loss_history=t.train()
-    io.savemat('losses_OPT_{}_Dataset{}_round_{}_L{}.mat'.format(options['optimizer'],options['dataset'],options['num_rounds'],options['num_epochs']), {'losses': loss_history})
+    losssavepath='losses_OPT_{}_Dataset{}_round_{}_L{}.mat'.format(options['optimizer'],options['dataset'],options['num_rounds'],options['num_epochs'])
+    io.savemat(losssavepath, {'losses': loss_history})
 
     print('after training, start testing')
 
@@ -201,14 +207,19 @@ def main():
         i=0
         loss_test=dict()
         accs = dict()
+        num_test = dict()
         for user in test_user:
-            accs[i],loss_test[i]=fmaml_test(trainer=t, learner=learner, train_data=dataset[2][user], test_data=dataset[3][user],
+            accs[i],loss_test[i],num_test[i]=fmaml_test(trainer=t, learner=learner, train_data=dataset[2][user], test_data=dataset[3][user],
                    params=options, user_name=user, num_local_updates=num_local_updates, weight= weight)
             i=i+1
-        loss_test = sum(loss_test.values()) / len(loss_test)
-        accs = sum(accs.values()) / len(accs)
-        tqdm.write('Local updates {} Final loss: {}'.format(num_local_updates, loss_test))
-        tqdm.write('Local updates {} Final acc: {}'.format(num_local_updates, accs))
+        loss_test = list(loss_test.values())
+        accs = list(accs.values())
+        num_test = list(num_test.values())
+        loss_test = [l * n / np.sum(num_test) for l, n in zip(loss_test, num_test)]
+        acc_test = [a * n / np.sum(num_test) for a, n in zip(accs, num_test)]
+        tqdm.write(' Final loss: {}'.format(np.sum(loss_test)))
+        print("Local average acc", np.sum(acc_test))
+        print('loss save path: ',losssavepath)
 
 
 def fmaml_test(trainer, learner, train_data, test_data, params, user_name, num_local_updates, weight):
@@ -227,13 +238,13 @@ def fmaml_test(trainer, learner, train_data, test_data, params, user_name, num_l
 
     # tot_correct, loss, test_loss, ns = test_client.final_test()
     # client_params = trainer.latest_model
-    soln = test_client.fast_adapt(1)
+    soln = test_client.fast_adapt(params['adapt_num'])
 
     test_client.set_params(soln)
 
-    acc, test_loss, _ = test_client.test_test()
+    acc, test_loss, test_num = test_client.test_test()
 
-    return acc,test_loss
+    return acc,test_loss,test_num
     
 if __name__ == '__main__':
     main()

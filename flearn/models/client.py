@@ -8,17 +8,21 @@ class Client(object):
         self.group = group
         self.train_data = {k: np.array(v) for k,v in train_data.items()}
         self.eval_data = {k: np.array(v) for k,v in eval_data.items()}
+        # print('@client line 13 eval_data:', self.eval_data['x'].shape)
+        # print('@client line 13 train_data:',self.train_data['x'].shape)
+        # print('@client line 13 train_data type:', type(self.train_data['x']))
 
         #self.data = self.train_data.update(self.eval_data)
         self.data = {key: (self.train_data[key], self.eval_data[key]) for key in self.train_data.keys() & self.eval_data}
         for k,v in self.data.items():
             self.data[k] = np.vstack(v)
+        # print('@client line 13 data:', self.data['x'].shape)
 
 
         self.samples = len(self.data['y'])
 
         self.num_samples = len(self.train_data['y'])
-        self.test_samples = len(self.eval_data['y'])
+        self.test_num = len(self.eval_data['y'])
 
     def set_params(self, model_params):
         '''set model parameters'''
@@ -103,7 +107,7 @@ class Client(object):
             test_samples: int
         '''
         acc, loss,pred = self.model.test_test(self.eval_data)
-        return  acc, loss, self.samples,pred
+        return  acc, loss, self.test_num,pred
 
     def test_zeroth(self):
         zero_loss = self.model.zeroth_loss(self.eval_data)

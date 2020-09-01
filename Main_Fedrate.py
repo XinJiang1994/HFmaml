@@ -9,11 +9,12 @@ from flearn.utils.model_utils import read_data, read_data_xin
 from flearn.models.client import Client
 from tqdm import tqdm
 from scipy import io
+os.environ['TF_CPP_MIN_LOG_LEVEL']='3'
 
 # GLOBAL PARAMETERS
 OPTIMIZERS = ['HFfmaml', 'fmaml', 'fedavg', 'fedprox', 'feddane', 'fedddane', 'fedsgd']
 DATASETS = ['sent140', 'nist', 'shakespeare', 'mnist',
-            'synthetic_iid', 'synthetic_0_0', 'synthetic_0.5_0.5', 'synthetic_1_1']  # NIST is EMNIST in the paepr
+            'synthetic_iid', 'synthetic_0_0', 'synthetic_0.5_0.5', 'synthetic_1_1','cifar10']  # NIST is EMNIST in the paepr
 
 MODEL_PARAMS = {
     'sent140.bag_dnn': (2,),  # num_classes
@@ -38,11 +39,11 @@ def read_options():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--optimizer', default='fedavg', help='name of optimizer;', type=str, choices=OPTIMIZERS)
-    parser.add_argument('--dataset', default='cifar10', help='name of dataset;', type=str, choices=DATASETS)
-    parser.add_argument('--model', default='cnn_fedavg', help='name of model;', type=str)
-    parser.add_argument('--num_rounds', default=150, help='number of rounds to simulate;', type=int)
+    parser.add_argument('--dataset', default='mnist', help='name of dataset;', type=str, choices=DATASETS)
+    parser.add_argument('--model', default='mclr2', help='name of model;', type=str)
+    parser.add_argument('--num_rounds', default=50, help='number of rounds to simulate;', type=int)
     parser.add_argument('--eval_every', default=1, help='evaluate every rounds;', type=int)
-    parser.add_argument('--clients_per_round', default=80, help='number of clients trained per round;', type=int)
+    parser.add_argument('--clients_per_round', default=40, help='number of clients trained per round;', type=int)
     parser.add_argument('--batch_size', default=10, help='batch size when clients train on data;', type=int)
     parser.add_argument('--num_epochs', default=5, help='number of epochs when clients train on data;', type=int)  # 20
     parser.add_argument('--alpha', default=0.01, help='learning rate for inner solver;', type=float)
@@ -53,7 +54,7 @@ def read_options():
     parser.add_argument('--rho', default=1.5, help='rho for regularizer', type=int)
     parser.add_argument('--mu_i', default=0, help='mu_i for optimizer', type=int)
     parser.add_argument('--num_local_updates', default=1, help='mu_i for optimizer', type=int)
-
+    parser.add_argument('--adapt_num', default=1, help='mu_i for optimizer', type=int)
 
     try:
         parsed = vars(parser.parse_args())
@@ -108,6 +109,7 @@ def reshape_features(x):
 
 
 def main():
+    tf.reset_default_graph()
     # suppress tf warnings
     tf.logging.set_verbosity(tf.logging.WARN)
 
@@ -126,9 +128,6 @@ def main():
             for i in range(len(dataset[2][user]['y'])):
                 dataset[2][user]['x'][i] = reshape_features(dataset[2][user]['x'][i])
                 dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i])
-
-        # print('reshape labels in test dataset')
-        for user in dataset[0]:
             for i in range(len(dataset[3][user]['y'])):
                 dataset[3][user]['x'][i] = reshape_features(dataset[3][user]['x'][i])
                 dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i])
@@ -142,14 +141,12 @@ def main():
         for user in dataset[0]:
             for i in range(len(dataset[2][user]['y'])):
                 dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i])
-
-        # print('reshape labels in test dataset')
-        for user in dataset[0]:
             for i in range(len(dataset[3][user]['y'])):
                 dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i])
+    np.random.seed(12)
     random.shuffle(dataset[0])
-    test_user = dataset[0][80:]
-    del dataset[0][80:]
+    test_user = dataset[0][40:]
+    del dataset[0][40:]
 
     sams_train = []
     sams_taget = []
@@ -188,8 +185,9 @@ def main():
     # 、 o00000007理论 call appropriate trainer
     t = optimizer(options, learner, dataset)
     loss_history=t.train()
+    loss_save_path='losses_OPT_{}_Dataset{}_round_{}.mat'.format(options['optimizer'], options['dataset'], options['num_rounds'])
     io.savemat(
-        'losses_OPT_{}_Dataset{}_round_{}.mat'.format(options['optimizer'], options['dataset'], options['num_rounds']),
+        loss_save_path,
         {'losses': loss_history})
     print('after training, start testing')
 
@@ -198,15 +196,20 @@ def main():
 
     loss_test = dict()
     accs = dict()
-    preds = dict()
+    num_test = dict()
     for i, user in enumerate(test_user):
         # print(dataset[2][user])
-        loss_test[i], accs[i], preds[i] = fmaml_test(trainer=t, learner=learner, train_data=dataset[2][user],
+        loss_test[i], accs[i], num_test[i] = fmaml_test(trainer=t, learner=learner, train_data=dataset[2][user],
                                                      test_data=dataset[3][user],
                                                      params=options, user_name=user, weight=weight)
-    loss_test = np.mean(list(loss_test.values()))
-    tqdm.write(' Final loss: {}'.format(loss_test))
-    print("Local average acc", np.mean(list(accs.values())))
+    loss_test = list(loss_test.values())
+    accs = list(accs.values())
+    num_test = list(num_test.values())
+    loss_test = [l * n / np.sum(num_test) for l, n in zip(loss_test, num_test)]
+    acc_test = [a * n / np.sum(num_test) for a, n in zip(accs, num_test)]
+    tqdm.write(' Final loss: {}'.format(np.sum(loss_test)))
+    print("Local average acc", np.sum(acc_test))
+    print('loss_save_path',loss_save_path)
     # for i,user in enumerate(test_user):
     #     print(user)
     #     test_data=dataset[3][user]
@@ -227,11 +230,11 @@ def fmaml_test(trainer, learner, train_data, test_data, params, user_name, weigh
     test_client = Client(user_name, [], train_data, test_data, client_model)
     test_client.set_params(weight)
 
-    _ = test_client.fast_adapt(1)
+    _ = test_client.fast_adapt(params['adapt_num'])
 
-    acc, test_loss, samp_num, preds = test_client.test_test()
+    acc, test_loss, test_num, preds = test_client.test_test()
 
-    return test_loss, acc, preds
+    return test_loss, acc, test_num
 
 
 if __name__ == '__main__':

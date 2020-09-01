@@ -18,7 +18,7 @@ class BaseModel(object):
         self.seed=params['seed']
         self.graph = tf.Graph()
         self.theta_kp1 = None
-        self.optimizer2 = tf.train.GradientDescentOptimizer(0.003)
+        self.optimizer1 = tf.train.GradientDescentOptimizer(self.alpha)
 
         with self.graph.as_default():
             self.sess = tf.Session(graph=self.graph)
@@ -45,8 +45,14 @@ class BaseModel(object):
             # print('baseModel line 44 logits_train.shape', logits_train.shape)
             loss_train=self.loss_func(logits_train,self.labels_train)
 
+            # print('@BaseModel line 48',self.weights)
+
             grad_w=tf.gradients(loss_train,self.weights)
+            # print('@BaseModel line 48 grad_w:',grad_w)
             phy=[val-self.alpha * grad for grad,val in zip(grad_w,self.weights)]
+
+            g_v=self.optimizer1.compute_gradients(loss_train)
+            self.adapt_op=self.optimizer1.apply_gradients(g_v, global_step=tf.train.get_global_step())
 
             logits_test=self.forward_func(inp=self.features_test,weights=phy,w_names=w_names, reuse=True)
             loss_test=self.loss_func(logits_test,self.labels_test)
@@ -84,6 +90,12 @@ class BaseModel(object):
                 "classes": tf.argmax(input=logits_test_final, axis=1),
                 "probabilities": tf.nn.softmax(logits_test_final, name="softmax_tensor")
             }
+            pred_test=tf.argmax(input=logits_test, axis=1)
+            self.test_acc=tf.reduce_mean(tf.cast(tf.equal(tf.cast(tf.argmax(input=self.labels_test, axis=1), dtype=tf.float32),
+                                                        tf.cast(pred_test, dtype=tf.float32)),dtype=tf.float32))
+            self.train_acc = tf.reduce_mean(
+                tf.cast(tf.equal(tf.cast(tf.argmax(input=self.labels_train, axis=1), dtype=tf.float32),
+                                 tf.cast(tf.argmax(input=logits_train,axis=1),dtype=tf.float32)), dtype=tf.float32))
             eval_metric_ops = tf.reduce_mean(tf.cast(tf.equal(tf.cast(tf.argmax(input=self.labels_test, axis=1), dtype=tf.float32),
                                                         tf.cast(self.predictions_test["classes"], dtype=tf.float32)),dtype=tf.float32))
         return eval_metric_ops, loss_test, loss_train, theta_i_kp1s, phy
@@ -125,7 +137,7 @@ class BaseModel(object):
 
     def solve_inner(self, train_data, test_data, num_epochs):
         self.k += 1
-        self.delta.load(1.0/(self.k+10)**2,self.sess)
+        self.delta.load(1.0/(self.k+100)**2,self.sess)
 
         X_train=train_data['x']
         y_train=train_data['y']
@@ -146,12 +158,12 @@ class BaseModel(object):
         return soln, yyk
 
     def fast_adapt(self, train_data, num_epochs):
-        batch_size_train = len(train_data['y'])
         for i in range(num_epochs):
             with self.graph.as_default():
-                    soln=self.sess.run(self.fast_vars,
+                self.sess.run(self.adapt_op,
                                 feed_dict={self.features_train: train_data['x'], self.labels_train: train_data['y']})
-                    self.set_params(soln)
+                    # self.set_params(soln)
+                soln=self.get_params()
         return soln
 
     def receive_global_theta(self, model_params=None):
@@ -192,6 +204,7 @@ class BaseModel(object):
                 yy_kp1s.append(yy_k+self.rho*(theta_kp1_i-theta_kp1))
             self.set_yyk(yy_kp1s)
 
+
     def test(self, train_data, test_data):
         '''
         Args:
@@ -201,12 +214,12 @@ class BaseModel(object):
         # print(train_data)
 
         with self.graph.as_default():
-            acc, loss, train_loss = self.sess.run([self.eval_metric_ops, self.loss, self.train_loss],
+            acc_train,acc_test, loss, train_loss = self.sess.run([self.train_acc, self.test_acc, self.loss, self.train_loss],
                                                           feed_dict={self.features_train: train_data['x'],
                                                                      self.labels_train: train_data['y'],
                                                                      self.features_test: test_data['x'],
                                                                      self.labels_test: test_data['y']})
-        return acc, loss
+        return acc_train,acc_test, loss
 
     def test_test(self, data):
         '''
@@ -214,7 +227,7 @@ class BaseModel(object):
             data: dict of the form {'x': [list], 'y': [list]}
         '''
         with self.graph.as_default():
-            acc, loss_train,preds = self.sess.run([self.eval_metric_ops, self.train_loss,self.predictions_test["classes"]],
+            acc, loss_train,preds = self.sess.run([self.eval_metric_ops, self.train_loss,self.predictions_test['probabilities']],
                                                     feed_dict={self.features_train: data['x'], self.labels_train: data['y'],
                                                                self.features_test: data['x'], self.labels_test: data['y']})
         return acc, loss_train,preds

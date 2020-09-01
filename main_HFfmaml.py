@@ -4,17 +4,20 @@ import importlib
 import random
 import os
 import tensorflow as tf
-from flearn.utils.model_utils import read_data
+from flearn.utils.model_utils import read_data,load_weights,save_weights
 
 from flearn.models.client_HFmaml import Client
 from tqdm import  tqdm
 
 from scipy import io
 
+os.environ['TF_CPP_MIN_LOG_LEVEL']='3'
+tf.reset_default_graph()
+
 # GLOBAL PARAMETERS
 OPTIMIZERS = ['HFfmaml','fmaml', 'fedavg', 'fedprox', 'feddane', 'fedddane', 'fedsgd']
 DATASETS = ['sent140', 'nist', 'shakespeare', 'mnist',
-'synthetic_iid', 'synthetic_0_0', 'synthetic_0.5_0.5', 'synthetic_1_1']  # NIST is EMNIST in the paepr
+'synthetic_iid', 'synthetic_0_0', 'synthetic_0.5_0.5', 'synthetic_1_1','cifar10']  # NIST is EMNIST in the paepr
 
 
 MODEL_PARAMS = {
@@ -39,18 +42,21 @@ def read_options():
     parser.add_argument('--optimizer',default='HFfmaml',help='name of optimizer;',type=str,choices=OPTIMIZERS)
     parser.add_argument('--dataset',default='cifar10',help='name of dataset;',type=str,choices=DATASETS)
     parser.add_argument('--model',default='cnn',help='name of model;',type=str)
-    parser.add_argument('--num_rounds',default=150,help='number of rounds to simulate;',type=int)
+    parser.add_argument('--num_rounds',default=0,help='number of rounds to simulate;',type=int)
     parser.add_argument('--eval_every',default=1,help='evaluate every rounds;',type=int)
-    parser.add_argument('--clients_per_round',default=80,help='number of clients trained per round;',type=int)
-    parser.add_argument('--batch_size',default=10,help='batch size when clients train on data;',type=int)
-    parser.add_argument('--num_epochs',default=5,help='number of epochs when clients train on data;',type=int) #20
+    parser.add_argument('--clients_per_round',default=40,help='number of clients trained per round;',type=int)
+    parser.add_argument('--batch_size',default=100,help='batch size when clients train on data;',type=int)
+    parser.add_argument('--num_epochs',default=1,help='number of epochs when clients train on data;',type=int) #20
     parser.add_argument('--alpha',default=0.01,help='learning rate for inner solver;',type=float)
     parser.add_argument('--beta',default=0.003,help='meta rate for inner solver;',type=float)
     # parser.add_argument('--mu',help='constant for prox;',type=float,default=0.01)
     parser.add_argument('--seed',default=0,help='seed for randomness;',type=int)
     parser.add_argument('--labmda',default=0,help='labmda for regularizer',type=int)
-    parser.add_argument('--rho',default=0.5,help='rho for regularizer',type=int)
+    parser.add_argument('--rho',default=0.5,help='rho for regularizer',type=float)
     parser.add_argument('--mu_i',default=0,help='mu_i for optimizer',type=int)
+    parser.add_argument('--adapt_num', default=1, help='adapt number', type=int)
+    parser.add_argument('--isTrain', default=True, help='load trained wights', type=bool)
+
 
     try: parsed = vars(parser.parse_args())
     except IOError as msg: parser.error(str(msg))
@@ -102,8 +108,9 @@ def reshape_features(x):
     return x
 
 def main():
+
     # suppress tf warnings
-    tf.logging.set_verbosity(tf.logging.WARN)
+    tf.logging.set_verbosity(tf.logging.ERROR)
     
     # parse command line arguments
     options, learner, optimizer = read_options()
@@ -141,9 +148,10 @@ def main():
         for user in dataset[0]:
             for i in range(len(dataset[3][user]['y'])):
                 dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i])
+    np.random.seed(12)
     random.shuffle(dataset[0])
-    test_user=dataset[0][80:]
-    del dataset[0][80:]
+    test_user=dataset[0][options['clients_per_round']:]
+    del dataset[0][options['clients_per_round']:]
 
     sams_train=[]
     sams_taget=[]
@@ -157,13 +165,10 @@ def main():
     sams_train=[np.argmax(x) for x in sams_train]
     sams_taget = [np.argmax(x) for x in sams_taget]
     #print(sams_train)
-
     import collections
     c_train=collections.Counter(sams_train)
     c_target=collections.Counter(sams_taget)
-
     print(c_target)
-
     p1={}
     p2={}
     s1=0
@@ -175,33 +180,44 @@ def main():
         #print(i)
         p1[i]=c_train[i]/s1
         p2[i]=c_target[i]/s2
-
     print(p1)
     print(p2)
 
     #、 o00000007理论 call appropriate trainer
-    t = optimizer(options, learner, dataset)
-    loss_history=t.train()
-    io.savemat('losses_OPT_{}_Dataset{}_round_{}_rho_{}.mat'.format(options['optimizer'],options['dataset'],options['num_rounds'],options['rho']), {'losses': loss_history})
-    plot_losses(loss_history)
+    loss_save_path='losses_OPT_{}_Dataset{}_round_{}_rho_{}.mat'.format(options['optimizer'],options['dataset'],options['num_rounds'],options['rho'])
+    if options['isTrain']==True:
+        t = optimizer(options, learner, dataset)
+        loss_history=t.train()
+        io.savemat(loss_save_path, {'losses': loss_history})
+        plot_losses(loss_history)
 
 
-    print('after training, start testing')
+        print('after training, start testing')
 
-    client_params = t.latest_model
+        client_params = t.latest_model
 
-    weight = client_params
+        weight = client_params
+    else:
+        weight=load_weights('{}_{}_weights.mat'.format(options['dataset'],options['model']))
+
+    if options['labmda']==0 and options['isTrain']==True:
+        w_names = t.client_model.get_param_names()
+        save_weights(weight, w_names,'{}_{}_weights.mat'.format(options['dataset'],options['model']))
 
     loss_test=dict()
     accs=dict()
-    preds=dict()
+    num_test=dict()
     for i,user in enumerate(test_user):
-        #print(dataset[2][user])
-        loss_test[i],accs[i],preds[i]=fmaml_test(trainer=t, learner=learner, train_data=dataset[2][user], test_data=dataset[3][user],
+        loss_test[i],accs[i],num_test[i]=fmaml_test(trainer=t, learner=learner, train_data=dataset[2][user], test_data=dataset[3][user],
                 params=options, user_name=user, weight= weight)
-    loss_test = np.mean(list(loss_test.values()))
-    tqdm.write(' Final loss: {}'.format(loss_test))
-    print("Local average acc",np.mean(list(accs.values())))
+    loss_test=list(loss_test.values())
+    accs=list(accs.values())
+    num_test=list(num_test.values())
+    loss_test = [l*n/np.sum(num_test) for l,n in zip(loss_test,num_test)]
+    acc_test = [a * n/np.sum(num_test) for a, n in zip(accs, num_test)]
+    tqdm.write(' Final loss: {}'.format(np.sum(loss_test)))
+    print("Local average acc",np.sum(acc_test))
+    print("loss_save_path:",loss_save_path)
     # for i,user in enumerate(test_user):
     #     print(user)
     #     test_data=dataset[3][user]
@@ -221,33 +237,20 @@ def fmaml_test(trainer, learner, train_data, test_data, params, user_name, weigh
 
     test_client = Client(user_name, [], train_data, test_data, client_model)
     test_client.set_params(weight)
-    if params['labmda']==0:
-        w_names = test_client.model.get_param_names()
-        save_weights(weight, w_names)
-    #r = np.load('/root/TC174611125/fmaml/HFmaml/weights.npz')
 
-    #print('################:',np.sum(weight[0]-r['w']))
+    _ = test_client.fast_adapt(params['adapt_num'])
 
-    # tot_correct, loss, test_loss, ns = test_client.final_test()
-    soln = test_client.fast_adapt(1)
+    # test_client.set_params(soln)
 
-    #np.savez('weights.npz',w=soln[0],b=soln[1])
-    # soln = weight
-    test_client.set_params(soln)
+    acc, test_loss, test_num,preds = test_client.test_test()
 
-    acc, test_loss, samp_num,preds = test_client.test_test()
+    # print('@main_HFmaml line 240 preds:',preds)
 
-    return test_loss,acc,preds
+    return test_loss,acc,test_num
 
 import matplotlib.pyplot as plt
 def plot_losses(losses):
     plt.plot(losses)
-
-
-def save_weights(vars,names):
-    vars=dict(zip(names,vars))
-    io.savemat('weights.mat',vars)
-
 
 
 

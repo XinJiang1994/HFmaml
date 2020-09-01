@@ -9,8 +9,13 @@ class Client(object):
         self.group = group
         self.train_data = {k: np.array(v) for k,v in train_data.items()}
         self.eval_data = {k: np.array(v) for k,v in eval_data.items()}
+        self.data = {key: (self.train_data[key], self.eval_data[key]) for key in
+                     self.train_data.keys() & self.eval_data}
+        for k, v in self.data.items():
+            self.data[k] = np.vstack(v)
         self.train_samples = len(self.train_data['y'])
-        self.num_samples = len(self.eval_data['y']) # why this could be zero, this leads to the problem, this is just one datapoint
+        self.test_num=len(self.eval_data['y'])
+        self.num_samples = len(self.data['y']) # why this could be zero, this leads to the problem, this is just one datapoint
         # need to check the definition of num_samples
 
 
@@ -78,7 +83,7 @@ class Client(object):
             test_samples: int
         '''
         acc, loss,pred = self.model.test_test(self.eval_data)
-        return acc, loss, self.num_samples
+        return acc, loss, self.test_num
 
     def test_zeroth(self):
         zero_loss = self.model.zeroth_loss(self.eval_data)
