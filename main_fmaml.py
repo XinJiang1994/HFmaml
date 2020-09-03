@@ -14,7 +14,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL']='3'
 # GLOBAL PARAMETERS
 OPTIMIZERS = ['fmaml', 'fedavg', 'fedprox', 'feddane', 'fedddane', 'fedsgd']
 DATASETS = ['sent140', 'nist', 'shakespeare', 'mnist',
-'synthetic_iid', 'synthetic_0_0', 'synthetic_0.5_0.5', 'synthetic_1_1','cifar10']  # NIST is EMNIST in the paepr
+'synthetic_iid', 'synthetic_0_0', 'synthetic_0.5_0.5', 'synthetic_1_1','cifar10','Fmnist']  # NIST is EMNIST in the paepr
 
 
 MODEL_PARAMS = {
@@ -23,6 +23,8 @@ MODEL_PARAMS = {
     'sent140.stacked_lstm_no_embeddings': (25, 2, 100), # seq_len, num_classes, num_hidden
     'nist.mclr': (62,),  # num_classes, should be changed to 62 when using EMNIST
     'mnist.mclr': (10), # num_classes change
+    'Fmnist.mclr': (10),
+    'Fmnist.cnn_fmaml': (10,),
     'mnist.cnn': (10,),  # num_classes
     'cifar10.cnn': (10,),
     'cifar10.cnn_fmaml': (10,),
@@ -45,7 +47,7 @@ def read_options():
                     help='name of dataset;',
                     type=str,
                     choices=DATASETS,
-                    default='cifar10')
+                    default='Fmnist')
     parser.add_argument('--model',
                     help='name of model;',
                     type=str,
@@ -102,6 +104,8 @@ def read_options():
         model_path = '%s.%s.%s.%s' % ('flearn', 'models', 'synthetic', parsed['model']) #changed
     elif parsed['dataset'].startswith("cifar10"):
         model_path = '%s.%s.%s.%s' % ('flearn', 'models', 'cifar10', parsed['model'])
+    elif parsed['dataset'].startswith("Fmnist"):
+        model_path = '%s.%s.%s.%s' % ('flearn', 'models', 'Fmnist', parsed['model'])
     else:
         model_path = '%s.%s.%s.%s' % ('flearn', 'models', 'mnist', parsed['model']) #parsed['dataset']
 
@@ -129,6 +133,11 @@ def reshape_label(label):
     new_label[int(label)]=1
     return new_label
 
+def reshapeFmnist(x):
+    x=np.array(x)
+    x=x.reshape(28,28,1)
+    return x
+
 def reshape_features(x):
     x=np.array(x)
     x=np.transpose(x.reshape(3, 32, 32), [1, 2, 0])
@@ -155,11 +164,19 @@ def main():
             for i in range(len(dataset[2][user]['y'])):
                 dataset[2][user]['x'][i]=reshape_features(dataset[2][user]['x'][i])
                 dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i])
-
-        # print('reshape labels in test dataset')
-        for user in dataset[0]:
             for i in range(len(dataset[3][user]['y'])):
                 dataset[3][user]['x'][i] = reshape_features(dataset[3][user]['x'][i])
+                dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i])
+    elif options['dataset']=='Fmnist':
+        train_path = os.path.join('data', options['dataset'], 'data', 'train')
+        test_path = os.path.join('data', options['dataset'], 'data', 'test')
+        dataset = read_data(train_path, test_path) # return clients, groups, train_data, test_data
+        for user in dataset[0]:
+            for i in range(len(dataset[2][user]['y'])):
+                dataset[2][user]['x'][i] = reshapeFmnist(dataset[2][user]['x'][i])
+                dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i])
+            for i in range(len(dataset[3][user]['y'])):
+                dataset[3][user]['x'][i] = reshapeFmnist(dataset[3][user]['x'][i])
                 dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i])
     else:
         train_path = os.path.join('data', options['dataset'], 'data', 'train')
@@ -188,7 +205,7 @@ def main():
     # call appropriate trainer
     t = optimizer(options, learner, dataset)
     loss_history=t.train()
-    losssavepath='losses_OPT_{}_Dataset{}_round_{}_L{}.mat'.format(options['optimizer'],options['dataset'],options['num_rounds'],options['num_epochs'])
+    losssavepath='losses_OPT_{}_Dataset_{}_beta{}_round{}_L{}.mat'.format(options['optimizer'],options['dataset'],options['beta'],options['num_rounds'],options['num_epochs'])
     io.savemat(losssavepath, {'losses': loss_history})
 
     print('after training, start testing')

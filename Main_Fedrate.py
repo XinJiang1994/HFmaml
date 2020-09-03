@@ -14,7 +14,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL']='3'
 # GLOBAL PARAMETERS
 OPTIMIZERS = ['HFfmaml', 'fmaml', 'fedavg', 'fedprox', 'feddane', 'fedddane', 'fedsgd']
 DATASETS = ['sent140', 'nist', 'shakespeare', 'mnist',
-            'synthetic_iid', 'synthetic_0_0', 'synthetic_0.5_0.5', 'synthetic_1_1','cifar10']  # NIST is EMNIST in the paepr
+            'synthetic_iid', 'synthetic_0_0', 'synthetic_0.5_0.5', 'synthetic_1_1','cifar10','cifar100','Fmnist']  # NIST is EMNIST in the paepr
 
 MODEL_PARAMS = {
     'sent140.bag_dnn': (2,),  # num_classes
@@ -22,11 +22,15 @@ MODEL_PARAMS = {
     'sent140.stacked_lstm_no_embeddings': (25, 2, 100),  # seq_len, num_classes, num_hidden
     'nist.mclr': (62,),  # num_classes, should be changed to 62 when using EMNIST
     'mnist.mclr': (10),  # num_classes change
+    'Fmnist.mclr': (10),
     'mnist.mclr2': (10),
     'mnist.mclrFed': (10),
+    'Fmnist.mclrFed': (10),
+'Fmnist.cnn_fedavg': (10,),
     'mnist.cnn': (10,),  # num_classes
     'cifar10.cnn': (10,),
     'cifar10.cnn_fedavg': (10,),
+    'cifar100.cnn_fedavg': (100,),
     'shakespeare.stacked_lstm': (80, 80, 256),  # seq_len, emb_dim, num_hidden
     'synthetic_fed.mclr': (10),  # num_classes changed, remove,
     'synthetic.mclr2': (10),  # num_classes changed, remove,
@@ -39,9 +43,9 @@ def read_options():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--optimizer', default='fedavg', help='name of optimizer;', type=str, choices=OPTIMIZERS)
-    parser.add_argument('--dataset', default='mnist', help='name of dataset;', type=str, choices=DATASETS)
-    parser.add_argument('--model', default='mclr2', help='name of model;', type=str)
-    parser.add_argument('--num_rounds', default=50, help='number of rounds to simulate;', type=int)
+    parser.add_argument('--dataset', default='cifar100', help='name of dataset;', type=str, choices=DATASETS)
+    parser.add_argument('--model', default='cnn_fedavg', help='name of model;', type=str)
+    parser.add_argument('--num_rounds', default=100, help='number of rounds to simulate;', type=int)
     parser.add_argument('--eval_every', default=1, help='evaluate every rounds;', type=int)
     parser.add_argument('--clients_per_round', default=40, help='number of clients trained per round;', type=int)
     parser.add_argument('--batch_size', default=10, help='batch size when clients train on data;', type=int)
@@ -69,11 +73,16 @@ def read_options():
     # load selected model
     if parsed['dataset'].startswith("synthetic"):  # all synthetic_fed datasets use the same model
         model_path = '%s.%s.%s.%s' % ('flearn', 'models', 'synthetic', parsed['model'])  # changed
-    elif parsed['dataset'].startswith("cifar10"):
+    elif parsed['dataset']=="cifar10":
         model_path = '%s.%s.%s.%s' % ('flearn', 'models', 'cifar10', parsed['model'])  # changed
+    elif parsed['dataset']=="cifar100":
+        model_path = '%s.%s.%s.%s' % ('flearn', 'models', 'cifar100', parsed['model'])  # changed
+    elif parsed['dataset']=="Fmnist":
+        model_path = '%s.%s.%s.%s' % ('flearn', 'models', 'Fmnist', parsed['model'])
     else:
         model_path = '%s.%s.%s.%s' % ('flearn', 'models', 'mnist', parsed['model'])  # parsed['dataset']
 
+    print('@line 80 model_path:',model_path)
     mod = importlib.import_module(model_path)
     learner = getattr(mod, 'Model')
 
@@ -94,9 +103,9 @@ def read_options():
     return parsed, learner, optimizer
 
 
-def reshape_label(label):
+def reshape_label(label,n=10):
     # print(label)
-    new_label = [0] * 10
+    new_label = [0] * n
     new_label[int(label)] = 1
     return new_label
 
@@ -107,6 +116,10 @@ def reshape_features(x):
     # print(x.shape)
     return x
 
+def reshapeFmnist(x):
+    x=np.array(x)
+    x=x.reshape(28,28,1)
+    return x
 
 def main():
     tf.reset_default_graph()
@@ -117,19 +130,33 @@ def main():
     options, learner, optimizer = read_options()
 
     # read data
-    if options['dataset'] == 'cifar10':
+    if options['dataset'].startswith('cifar'):
         data_path = os.path.join('data', options['dataset'], 'data')
         # dataset = read_data_xin(data_path)  # return clients, groups, train_data, test_data
         train_path = os.path.join('data', options['dataset'], 'data', 'train')
         test_path = os.path.join('data', options['dataset'], 'data', 'test')
         dataset = read_data(train_path, test_path)
+        num_class=10
+        if options['dataset']=='cifar100':
+            num_class=100
 
         for user in dataset[0]:
             for i in range(len(dataset[2][user]['y'])):
                 dataset[2][user]['x'][i] = reshape_features(dataset[2][user]['x'][i])
-                dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i])
+                dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i],num_class)
             for i in range(len(dataset[3][user]['y'])):
                 dataset[3][user]['x'][i] = reshape_features(dataset[3][user]['x'][i])
+                dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i],num_class)
+    elif options['dataset']=='Fmnist':
+        train_path = os.path.join('data', options['dataset'], 'data', 'train')
+        test_path = os.path.join('data', options['dataset'], 'data', 'test')
+        dataset = read_data(train_path, test_path) # return clients, groups, train_data, test_data
+        for user in dataset[0]:
+            for i in range(len(dataset[2][user]['y'])):
+                dataset[2][user]['x'][i] = reshapeFmnist(dataset[2][user]['x'][i])
+                dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i])
+            for i in range(len(dataset[3][user]['y'])):
+                dataset[3][user]['x'][i] = reshapeFmnist(dataset[3][user]['x'][i])
                 dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i])
     else:
         train_path = os.path.join('data', options['dataset'], 'data', 'train')
@@ -145,8 +172,8 @@ def main():
                 dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i])
     np.random.seed(12)
     random.shuffle(dataset[0])
-    test_user = dataset[0][40:]
-    del dataset[0][40:]
+    test_user = dataset[0][options['clients_per_round']:]
+    del dataset[0][options['clients_per_round']:]
 
     sams_train = []
     sams_taget = []
@@ -185,7 +212,7 @@ def main():
     # 、 o00000007理论 call appropriate trainer
     t = optimizer(options, learner, dataset)
     loss_history=t.train()
-    loss_save_path='losses_OPT_{}_Dataset{}_round_{}.mat'.format(options['optimizer'], options['dataset'], options['num_rounds'])
+    loss_save_path='losses_OPT_{}_Dataset{}_round_{}_L{}.mat'.format(options['optimizer'], options['dataset'], options['num_rounds'],options['num_epochs'])
     io.savemat(
         loss_save_path,
         {'losses': loss_history})

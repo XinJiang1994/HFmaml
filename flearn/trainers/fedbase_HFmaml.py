@@ -137,7 +137,7 @@ class BaseFedarated(object):
         solns=[]
         for w,slon in wsolns:
             solns.append(slon)
-        l_th_c=[2*self.labmda*t for t in self.theta_c]
+        l_th_c = [2*self.labmda*t for t in self.theta_c]
 
         n=len(solns) # totally n nodes
         m=len(solns[0]) #[w,b]

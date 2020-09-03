@@ -77,10 +77,12 @@ class BaseModel(object):
 
             g_kp1 = [(g1 - g2) / (2 * self.delta) for g1, g2 in zip(grad_1, grad_2)]
 
-            # hessian=list(tf.gradients(loss_test,self.weights))
+            hessian=list(tf.gradients(loss_test,self.weights))
             # grad_val=self.optimizer2.compute_gradients(loss_test,self.weights)
 
             theta_i_kp1s = [tpkp1-(yy+self.w_i*(g_phy-self.alpha*gg))/(self.rho+self.mu_i) for tpkp1,yy,g_phy,gg in zip(theta_kp1,self.yy_k,grad_Ltest2phy,g_kp1)]
+            # theta_i_kp1s = [tpkp1 - (yy + self.w_i * g_phy) / (self.rho + self.mu_i) for
+            #                 tpkp1, yy, g_phy in zip(theta_kp1, self.yy_k, self.grad_Ltest2weight)]
             # theta_i_kp1s = [tpkp1 - (yy + self.w_i * (g_phy - 0* gg)) / (self.rho + self.mu_i) for
             #                 tpkp1, yy, g_phy, gg in zip(theta_kp1, self.yy_k, grad_Ltest2phy, g_kp1)]
 

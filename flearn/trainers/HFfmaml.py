@@ -4,9 +4,10 @@ from flearn.utils.model_utils import load_weights
 from .fedbase_HFmaml import BaseFedarated
 
 class Server(BaseFedarated):
-    def __init__(self, params, learner, dataset):
+    def __init__(self, params, learner, dataset,theta_c_path):
 
         print('Using Federated MAML to Train')
+        self.theta_c_path=theta_c_path
         self.lamda=params['labmda']
         _, _, self.train_data, self.test_data = dataset
         super(Server, self).__init__(params, learner, dataset)
@@ -82,6 +83,9 @@ class Server(BaseFedarated):
         if self.lamda == 0:
             theta_c=self.client_model.get_params()
         else:
-            theta_c = load_weights('weights.mat')
+            print('#### Loading theta_c...')
+            theta_c = load_weights(self.theta_c_path)
+            # model_param=self.client_model.get_params()
+            # theta_c=[np.random.normal(0.01, 0.5, p.shape) for p in model_param]
             # print('@HFmaml line 78 theta_c:', theta_c)
         self.theta_c=theta_c

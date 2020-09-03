@@ -7,9 +7,87 @@ import os
 import random
 from tqdm import trange
 import collections
+import struct
 
 random.seed(13)
 np.random.seed(14)
+
+
+def read_Fmnist_image(file_name):
+    '''
+    :param file_name: 文件路径
+    :return:  训练或者测试数据
+    如下是训练的图片的二进制格式
+    [offset] [type]          [value]          [description]
+    0000     32 bit integer  0x00000803(2051) magic number
+    0004     32 bit integer  60000            number of images
+    0008     32 bit integer  28               number of rows
+    0012     32 bit integer  28               number of columns
+    0016     unsigned byte   ??               pixel
+    0017     unsigned byte   ??               pixel
+    ........
+    xxxx     unsigned byte   ??               pixel
+    '''
+    file_handle=open(file_name,"rb")  #以二进制打开文档
+    file_content=file_handle.read()   #读取到缓冲区中
+    head = struct.unpack_from('>IIII', file_content, 0)  # 取前4个整数，返回一个元组
+    offset = struct.calcsize('>IIII')
+    imgNum = head[1]  #图片数
+    width = head[2]   #宽度
+    height = head[3]  #高度
+    bits = imgNum * width * height  # data一共有60000*28*28个像素值
+    bitsString = '>' + str(bits) + 'B'  # fmt格式：'>47040000B'
+    imgs = struct.unpack_from(bitsString, file_content, offset)  # 取data数据，返回一个元组
+    imgs_array=np.array(imgs).reshape((imgNum,width*height))     #最后将读取的数据reshape成 【图片数，图片像素】二维数组
+    return imgs_array
+
+def read_Fmnist_label(file_name):
+    '''
+    :param file_name:
+    :return:
+    标签的格式如下：
+    [offset] [type]          [value]          [description]
+    0000     32 bit integer  0x00000801(2049) magic number (MSB first)
+    0004     32 bit integer  60000            number of items
+    0008     unsigned byte   ??               label
+    0009     unsigned byte   ??               label
+    ........
+    xxxx     unsigned byte   ??               label
+    The labels values are 0 to 9.
+    '''
+    file_handle = open(file_name, "rb")  # 以二进制打开文档
+    file_content = file_handle.read()  # 读取到缓冲区中
+    head = struct.unpack_from('>II', file_content, 0)  # 取前2个整数，返回一个元组
+    offset = struct.calcsize('>II')
+    labelNum = head[1]  # label数
+    bitsString = '>' + str(labelNum) + 'B'  # fmt格式：'>47040000B'
+    label = struct.unpack_from(bitsString, file_content, offset)  # 取data数据，返回一个元组
+    return np.array(label)
+def get_data():
+    # 文件获取
+    train_image = "/root/TC174611125/Datasets/FashionMnist/train-images-idx3-ubyte"
+    test_image = "/root/TC174611125/Datasets/FashionMnist/t10k-images-idx3-ubyte"
+    train_label = "/root/TC174611125/Datasets/FashionMnist/train-labels-idx1-ubyte"
+    test_label = "/root/TC174611125/Datasets/FashionMnist/t10k-labels-idx1-ubyte"
+    # 读取数据
+    train_x = read_Fmnist_image(train_image)
+    test_x = read_Fmnist_image(test_image)
+    train_y = read_Fmnist_label(train_label)
+    test_y = read_Fmnist_label(test_label)
+    return train_x,train_y,test_x,test_y
+
+def prepare_Fmnist_data():
+    train_x, train_y, test_x, test_y=get_data()
+    data=np.concatenate([train_x,test_x])
+    data=norm(data)
+    labels=np.concatenate([train_y, test_y])
+    data_list = []
+    label_list = []
+    for i in tqdm(range(10)):
+        idx = labels == i
+        data_list.append(data[idx])
+        label_list.append(labels[idx])
+    return data_list,label_list
 
 def norm(data):
     '''
@@ -69,6 +147,58 @@ def prepare_cifar10():
         label_list.append(dataset['labels'][idx])
     return data_list,label_list
 
+def prepare_cifar100():
+    filenames = ['train','test']
+    data_folder = '/root/TC174611125/Datasets/cifar100/'
+    data_paths = [os.path.join(data_folder, f) for f in filenames]
+    dataset = {'data': [], 'coarse_labels': [],'fine_labels':[]}
+    for p in data_paths:
+        cifars = unpickle(p)
+        data = cifars[b'data']
+        # data = data.reshape(10000, 3, 32, 32)
+        coarse_labels = cifars[b'coarse_labels']
+        fine_labels=cifars[b'fine_labels']
+        dataset['data'].append(data)
+        dataset['coarse_labels'].append(coarse_labels)
+        dataset['fine_labels'].append(fine_labels)
+    dataset['data']=np.concatenate(dataset['data'])
+    dataset['coarse_labels']=np.concatenate(dataset['coarse_labels'])
+    dataset['fine_labels'] = np.concatenate(dataset['fine_labels'])
+    dataset['data']=norm(dataset['data'])
+
+    print(dataset['fine_labels'].shape)
+
+    data_list = []
+    label_list = []
+    for i in tqdm(range(100)):
+        idx = dataset['fine_labels'] == i
+        data_list.append(dataset['data'][idx])
+        label_list.append(dataset['fine_labels'][idx])
+    return data_list,label_list
+
+def shuffle_data(d_fianl):
+    uid = d_fianl.keys()
+    udata = d_fianl.values()
+    udata_new = []
+    for d in udata:
+        X = d['X']
+        y = d['y']
+        # print("@line 156 X:", X)
+        # print("@line 157 y:", y)
+        y = y.reshape((-1, 1))
+        combined = np.concatenate((X, y), axis=1)
+        # print(("@line 157 combined.shape:", combined.shape))
+        np.random.shuffle(combined)
+        split_pos = combined.shape[1] - 1
+        X, y = np.split(combined, [split_pos], axis=1)
+        y = np.squeeze(y)
+        udata_new.append({'X': X, 'y': y})
+        # print('@line 164 y',y)
+        # print('@line 165 y.shape', y.shape)
+        # print('test')
+    random.shuffle(udata_new)
+    d_fianl = dict(zip(uid, udata_new))
+    return d_fianl
 
 class DataDivider():
     def __init__(self,data_list,label_list,num_users=100,a=100,division_ratio=[1/3,1/3,1/3],train_test_ratio=0.8,savepath = './cifar10/',num_class=10):
@@ -86,9 +216,9 @@ class DataDivider():
         self.idx=[0]*num_class
         self.pivots=self.get_pivots()
         print('@line 95 pivots :',self.pivots)
-        self.dataset=self.get_final_dataset()
-        self.train_data,self.test_data=self.generate_train_test()
-
+        self.dataset_main,self.dataset_remain=self.get_final_dataset()
+        self.train_data,self.test_data=self.generate_train_test(self.dataset_main,self.train_test_ratio)
+        self.train_data_remain, self.test_data_remain = self.generate_train_test(self.dataset_remain,1/40)
 
     def get_pivots(self):
         accumulate_sum_r = [0]
@@ -290,7 +420,7 @@ class DataDivider():
             c_pos += n
 
             for class_idx in classes:
-                bias=random.randint(0,4)
+                bias=random.randint(4,14)
                 idx_st=self.idx[class_idx]
                 idx_end=self.idx[class_idx]+self.a+bias
                 data_u.append(self.data_list[class_idx][idx_st:idx_end])
@@ -309,56 +439,118 @@ class DataDivider():
         print('@line293 num of each class in dist5:', c)
         return dataset
 
+    def dist6(self,n=2):
+        # for cifar100
+        st_idx = self.pivots[5]
+        end_idx = self.pivots[6]
+        dataset = {}
+        sample_num = 0
+        c_pos = 0
+        for u in range(st_idx, end_idx):
+            data_u = []
+            label_u = []
+            classes = []
+            c_st = c_pos
+            c_end = c_pos + n
+
+            for i in range(c_st, c_end):
+                classes.append(i % self.num_class)
+            print('@line 356 classes to get:', classes)
+            c_pos += n
+
+            for class_idx in classes:
+                bias = random.randint(0, 4)
+                idx_st = self.idx[class_idx]
+                idx_end = self.idx[class_idx] + self.a + bias
+                data_u.append(self.data_list[class_idx][idx_st:idx_end])
+                label_u.append(self.label_list[class_idx][idx_st:idx_end])
+                self.idx[class_idx] += self.a + bias
+                sample_num += self.a + bias
+            data_u = np.concatenate(data_u)
+            label_u = np.concatenate(label_u)
+            dataset[u] = {'X': data_u, 'y': label_u}
+        ls = []
+        for d_u in dataset.values():
+            # print('@line 182:',d_u)
+            ls += d_u['y'].tolist()
+        c = collections.Counter(ls)
+        print('line 292 sample num dist5:', sample_num)
+        print('@line293 num of each class in dist5:', c)
+        return dataset
+
+    def solve_remained_data(self):
+        # data_r = []
+        # label_r = []
+        # for i in range(self.num_class):
+        #     data_r.append(self.data_list[i][self.idx[i]:])
+        #     label_r.append(self.label_list[i][self.idx[i]:])
+        # data_r = np.concatenate(data_r)
+        # label_r = np.concatenate(label_r)
+        # print('@  line 428 Remained data num:',label_r.shape)
+        # # filename=os.path.join(self.savepath,'center_data')
+        # # np.savez(filename,X=data_r,y=label_r)
+        n=2
+        num_samples=self.a*10
+        st_idx = self.pivots[4]
+        end_idx = self.pivots[5]
+        dataset = {}
+        sample_num = 0
+        c_pos = 0
+        for u in range(self.num_users):
+            data_u = []
+            label_u = []
+            classes = []
+            c_st = c_pos
+            c_end = c_pos + n
+
+            for i in range(c_st, c_end):
+                classes.append(i % self.num_class)
+            print('@line 289 classes to get:', classes)
+            c_pos += n
+
+            for class_idx in classes:
+                bias = random.randint(10, 80)
+                idx_st = self.idx[class_idx]
+                idx_end = self.idx[class_idx] + num_samples + bias
+                data_u.append(self.data_list[class_idx][idx_st:idx_end])
+                label_u.append(self.label_list[class_idx][idx_st:idx_end])
+                self.idx[class_idx] += num_samples + bias
+                sample_num += (num_samples + bias)
+            data_u = np.concatenate(data_u)
+            label_u = np.concatenate(label_u)
+            dataset[u] = {'X': data_u, 'y': label_u}
+        ls = []
+        for d_u in dataset.values():
+            # print('@line 182:',d_u)
+            ls += d_u['y'].tolist()
+        c = collections.Counter(ls)
+        print('line 449 sample num dist5:', sample_num)
+        print('@450 num of each class in dist5:', c)
+        return dataset
+
     def get_final_dataset(self):
         d1=self.dist1()
         d2=self.dist2()
         d3=self.dist3()
         d4=self.dist4()
         d5=self.dist5()
+        d6=self.dist6()
 
         d_fianl=d1
         d_fianl.update(d2)
         d_fianl.update(d3)
         d_fianl.update(d5)
+        d_fianl.update(d6)
         # d_fianl.update(d4)
         #打乱顺序
-        uid=d_fianl.keys()
-        udata=d_fianl.values()
-        udata_new=[]
-        for d in udata:
-            X=d['X']
-            y=d['y']
-            # print("@line 156 X:", X)
-            # print("@line 157 y:", y)
-            y=y.reshape((-1,1))
-            combined = np.concatenate((X,y),axis=1)
-            # print(("@line 157 combined.shape:", combined.shape))
-            np.random.shuffle(combined)
-            split_pos=combined.shape[1]-1
-            X,y=np.split(combined,[split_pos],axis=1)
-            y=np.squeeze(y)
-            udata_new.append({'X':X,'y':y})
-            # print('@line 164 y',y)
-            # print('@line 165 y.shape', y.shape)
-            # print('test')
-        random.shuffle(udata_new)
-        d_fianl=dict(zip(uid,udata_new))
+        d_fianl=shuffle_data(d_fianl)
         d_fianl.update(d4)
 
-        return d_fianl
+        d_remain=self.solve_remained_data()
 
-    def solve_remained_data(self):
-        data_r = []
-        label_r = []
-        for i in range(self.num_class):
-            data_r.append(self.data_list[self.idx[i]:])
-            label_r.append(self.label_list[self.idx[i]:])
-        data_r = np.concatenate(data_r)
-        label_r = np.concatenate(label_r)
-        filename=os.path.join(self.savepath,'center_data.npy')
-        np.savez(filename,X=data_r,y=label_r)
+        return d_fianl,d_remain
 
-    def generate_train_test(self):
+    def generate_train_test(self,dataset,train_test_ratio):
         train_data = {'users': [], 'user_data': {}, 'num_samples': []}
         test_data = {'users': [], 'user_data': {}, 'num_samples': []}
         # for i in range(self.num_users):
@@ -378,10 +570,10 @@ class DataDivider():
         #     test_data['num_samples'].append(test_len)
         for i in range(self.num_users):
             uname = 'f_{0:05d}'.format(i)
-            X = self.dataset[i]['X']
-            y = self.dataset[i]['y']
+            X = dataset[i]['X']
+            y = dataset[i]['y']
             # train_len=int(self.train_test_ratio*X.shape[0])
-            train_len = int(self.train_test_ratio * X.shape[0])
+            train_len = int(train_test_ratio * X.shape[0])
             test_len = X.shape[0] - train_len
             X = X.tolist()
             y = y.tolist()
@@ -397,9 +589,29 @@ class DataDivider():
         print('sum num_samples of test data:',sum(test_data['num_samples']))
         return train_data,test_data
 
-    def save_data(self):
-        train_path = os.path.join(self.savepath, 'data/train/all_data_0_niid_0_keep_10_train_9.json')
-        test_path = os.path.join(self.savepath, 'data/test/all_data_0_niid_0_keep_10_test_9.json')
+    def save_data(self,onlyPretrain_data=False):
+        if not onlyPretrain_data:
+            train_path = os.path.join(self.savepath,
+                                      'data/train/all_data_train_u_{}_a{}_node_type{}.json'.format(self.num_users, self.a,
+                                                                                                   5))
+            test_path = os.path.join(self.savepath,
+                                     'data/test/all_data_test_u{}_a{}_node_type{}.json'.format(self.num_users, self.a,
+                                                                                                5))
+            self.save(self.train_data,self.test_data,train_path,test_path)
+
+        #solve the remain data
+        train_path_r = os.path.join(self.savepath,
+                                  'data/pretrain/remain_data_train_u_{}_a{}_node_type{}.json'.format(self.num_users, self.a,
+                                                                                               5))
+        test_path_r = os.path.join(self.savepath,
+                                 'data/pretest/remain_data_test_u{}_a{}_node_type{}.json'.format(self.num_users, self.a,
+                                                                                            5))
+        self.save(self.train_data_remain, self.test_data_remain, train_path_r, test_path_r)
+
+
+    def save(self,train_data,test_data,train_path,test_path):
+        # train_path = os.path.join(self.savepath, 'data/train/all_data_0_niid_0_keep_10_train_9.json')
+        # test_path = os.path.join(self.savepath, 'data/test/all_data_0_niid_0_keep_10_test_9.json')
         dir_path = os.path.dirname(train_path)
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
@@ -408,31 +620,48 @@ class DataDivider():
             os.makedirs(dir_path)
 
         with open(train_path, 'w') as outfile:
-            json.dump(self.train_data, outfile)
+            json.dump(train_data, outfile)
         with open(test_path, 'w') as outfile:
-            json.dump(self.test_data, outfile)
+            json.dump(test_data, outfile)
 
 
 
-def genrate_cifar10():
+def genrate_cifar10(onlyPretrain_data=False):
     data_list, label_list=prepare_cifar10()
-    generator=DataDivider(data_list,label_list,num_users=50,a=10,division_ratio=[0, 0, 0, 0, 1],train_test_ratio=0.2,savepath='./cifar10',num_class=10)
-    generator.save_data()
-    generator.solve_remained_data()
+    generator=DataDivider(data_list,label_list,num_users=50,a=10,division_ratio=[0, 0, 0, 0, 1,0],train_test_ratio=0.2,savepath='./cifar10',num_class=10)
+    generator.save_data(onlyPretrain_data=onlyPretrain_data)
 
-def genrate_mnist():
+def genrate_cifar100():
+    print('Generating Cifar100......')
+    data_list, label_list=prepare_cifar100()
+    generator=DataDivider(data_list,label_list,num_users=100,a=10,division_ratio=[0, 0, 0, 0,0, 1],train_test_ratio=0.2,savepath='./cifar100',num_class=100)
+    # generator.save_data()
+
+def generate_mnist():
     # data_list, label_list=prepare_cifar10()
     data_list, label_list=prepare_mnist_data()
-    generator=DataDivider(data_list,label_list,num_users=50,a=10,division_ratio=[0, 0, 0, 0, 1],train_test_ratio=0.2,savepath='./mnist',num_class=10)
+    generator=DataDivider(data_list,label_list,num_users=50,a=10,division_ratio=[0, 0, 0, 0, 1,0],train_test_ratio=0.2,savepath='./mnist',num_class=10)
     generator.save_data()
-    generator.solve_remained_data()
 
-def gennereate_dataset(dname='mnist'):
+def generate_Fmnist():
+    data_list, label_list=prepare_Fmnist_data()
+    generator = DataDivider(data_list, label_list, num_users=50, a=10, division_ratio=[0, 0, 0, 0, 1, 0],
+                            train_test_ratio=0.2, savepath='./Fmnist', num_class=10)
+    generator.save_data()
+
+def generate_dataset(dname,onlyPretrain_data):
     if dname=='mnist':
-        genrate_mnist()
+        generate_mnist()
+    elif dname == 'Fmnist':
+        generate_Fmnist()
+    elif dname=='cifar10':
+        genrate_cifar10(onlyPretrain_data)
     else:
-        genrate_cifar10()
+        genrate_cifar100()
 
 if __name__=='__main__':
     # gen_test()
-    gennereate_dataset()
+    generate_dataset('cifar10',onlyPretrain_data=True)
+    # data_list, label_list = prepare_cifar100()
+    # for l in label_list:
+    #     print(len(l))

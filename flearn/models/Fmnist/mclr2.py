@@ -33,18 +33,18 @@ class Model(BaseModel):
         hidden = tf.matmul(inp, weights['w1']) + weights['b1']
         hidden = active_func(hidden)
         hidden = tf.matmul(hidden, weights['w2']) + weights['b2']
-        # hidden = lrelu(hidden)
-        # hidden = tf.matmul(hidden, weights['w3']) + weights['b3']
+        hidden = active_func(hidden)
+        hidden = tf.matmul(hidden, weights['w3']) + weights['b3']
         return hidden
 
     def construct_weights(self):
         '''
         :return:weights
         '''
-        w1 = tf.Variable(tf.truncated_normal([784, 64], stddev=0.01), name='w1')
-        b1 = tf.Variable(tf.zeros([64]), name='b1')
-        w2 = tf.Variable(tf.truncated_normal([64, 10], stddev=0.01), name='w2')
-        b2 = tf.Variable(tf.zeros([10]), name='b2')
-        # w3 = tf.Variable(tf.truncated_normal([512, self.num_classes], stddev=0.01), name='w3')
-        # b3 = tf.Variable(tf.zeros([self.num_classes]), name='b3')
-        return [w1, b1, w2, b2]
+        w1 = tf.Variable(tf.truncated_normal([784, 32], stddev=0.01), name='w1')
+        b1 = tf.Variable(tf.zeros([32]), name='b1')
+        w2 = tf.Variable(tf.truncated_normal([32, 64], stddev=0.01), name='w2')
+        b2 = tf.Variable(tf.zeros([64]), name='b2')
+        w3 = tf.Variable(tf.truncated_normal([64, self.num_classes], stddev=0.01), name='w3')
+        b3 = tf.Variable(tf.zeros([self.num_classes]), name='b3')
+        return [w1, b1, w2, b2, w3, b3]

@@ -17,7 +17,7 @@ tf.reset_default_graph()
 # GLOBAL PARAMETERS
 OPTIMIZERS = ['HFfmaml','fmaml', 'fedavg', 'fedprox', 'feddane', 'fedddane', 'fedsgd']
 DATASETS = ['sent140', 'nist', 'shakespeare', 'mnist',
-'synthetic_iid', 'synthetic_0_0', 'synthetic_0.5_0.5', 'synthetic_1_1','cifar10']  # NIST is EMNIST in the paepr
+'synthetic_iid', 'synthetic_0_0', 'synthetic_0.5_0.5', 'synthetic_1_1','cifar10','cifar100','Fmnist']  # NIST is EMNIST in the paepr
 
 
 MODEL_PARAMS = {
@@ -27,8 +27,11 @@ MODEL_PARAMS = {
     'nist.mclr': (62,),  # num_classes, should be changed to 62 when using EMNIST
     'mnist.mclr': (10), # num_classes change
     'mnist.mclr2': (10),
+    'Fmnist.mclr2': (10),
+    'Fmnist.cnn': (10),
     'mnist.cnn': (10,),  # num_classes
     'cifar10.cnn': (10,),
+    'cifar100.cnn': (100,),
     'shakespeare.stacked_lstm': (80, 80, 256), # seq_len, emb_dim, num_hidden
     'synthetic_fed.mclr': (10), # num_classes changed, remove,
     'synthetic.mclr2': (10), # num_classes changed, remove,
@@ -40,7 +43,7 @@ def read_options():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--optimizer',default='HFfmaml',help='name of optimizer;',type=str,choices=OPTIMIZERS)
-    parser.add_argument('--dataset',default='cifar10',help='name of dataset;',type=str,choices=DATASETS)
+    parser.add_argument('--dataset',default='cifar100',help='name of dataset;',type=str,choices=DATASETS)
     parser.add_argument('--model',default='cnn',help='name of model;',type=str)
     parser.add_argument('--num_rounds',default=0,help='number of rounds to simulate;',type=int)
     parser.add_argument('--eval_every',default=1,help='evaluate every rounds;',type=int)
@@ -51,11 +54,12 @@ def read_options():
     parser.add_argument('--beta',default=0.003,help='meta rate for inner solver;',type=float)
     # parser.add_argument('--mu',help='constant for prox;',type=float,default=0.01)
     parser.add_argument('--seed',default=0,help='seed for randomness;',type=int)
-    parser.add_argument('--labmda',default=0,help='labmda for regularizer',type=int)
+    parser.add_argument('--labmda',default=1,help='labmda for regularizer',type=float)
     parser.add_argument('--rho',default=0.5,help='rho for regularizer',type=float)
     parser.add_argument('--mu_i',default=0,help='mu_i for optimizer',type=int)
     parser.add_argument('--adapt_num', default=1, help='adapt number', type=int)
     parser.add_argument('--isTrain', default=True, help='load trained wights', type=bool)
+    parser.add_argument('--pretrain', default=False, help='Pretrain to get theta_c', type=bool)
 
 
     try: parsed = vars(parser.parse_args())
@@ -70,11 +74,16 @@ def read_options():
     # load selected model
     if parsed['dataset'].startswith("synthetic"):  # all synthetic_fed datasets use the same model
         model_path = '%s.%s.%s.%s' % ('flearn', 'models', 'synthetic', parsed['model']) #changed
-    elif  parsed['dataset'].startswith("cifar10"):
+    elif  parsed['dataset']=="cifar10":
         model_path = '%s.%s.%s.%s' % ('flearn', 'models', 'cifar10', parsed['model'])  # changed
+    elif  parsed['dataset']=="cifar100":
+        model_path = '%s.%s.%s.%s' % ('flearn', 'models', 'cifar100', parsed['model'])  # changed
+    elif  parsed['dataset']=="Fmnist":
+        model_path = '%s.%s.%s.%s' % ('flearn', 'models', 'Fmnist', parsed['model'])  # changed
     else:
         model_path = '%s.%s.%s.%s' % ('flearn', 'models', 'mnist', parsed['model']) #parsed['dataset']
 
+    print('@line 81 model path:',model_path)
     mod = importlib.import_module(model_path)
 
     learner = getattr(mod, 'Model')
@@ -95,9 +104,9 @@ def read_options():
 
     return parsed, learner, optimizer
 
-def reshape_label(label):
+def reshape_label(label,n=10):
     #print(label)
-    new_label=[0]*10
+    new_label=[0]*n
     new_label[int(label)]=1
     return new_label
 
@@ -107,31 +116,46 @@ def reshape_features(x):
     # print(x.shape)
     return x
 
-def main():
+def reshapeFmnist(x):
+    x=np.array(x)
+    x=x.reshape(28,28,1)
+    return x
 
-    # suppress tf warnings
-    tf.logging.set_verbosity(tf.logging.ERROR)
-    
-    # parse command line arguments
-    options, learner, optimizer = read_options()
-
+def prepare_dataset(options):
     # read data
-    if options['dataset']=='cifar10':
+    if options['dataset']=='cifar10' or options['dataset']=='cifar100':
         data_path = os.path.join('data', options['dataset'], 'data')
         # dataset = read_data_xin(data_path)  # return clients, groups, train_data, test_data
         train_path = os.path.join('data', options['dataset'], 'data', 'train')
         test_path = os.path.join('data', options['dataset'], 'data', 'test')
+        if options['pretrain']:
+            train_path = os.path.join('data', options['dataset'], 'data', 'pretrain')
+            test_path = os.path.join('data', options['dataset'], 'data', 'pretest')
         dataset = read_data(train_path, test_path)
+        num_class = 10
+        if options['dataset'] == 'cifar100':
+            num_class = 100
 
         for user in dataset[0]:
             for i in range(len(dataset[2][user]['y'])):
                 dataset[2][user]['x'][i]=reshape_features(dataset[2][user]['x'][i])
-                dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i])
+                dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i],num_class)
 
         # print('reshape labels in test dataset')
         for user in dataset[0]:
             for i in range(len(dataset[3][user]['y'])):
                 dataset[3][user]['x'][i] = reshape_features(dataset[3][user]['x'][i])
+                dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i],num_class)
+    elif options['dataset']=='Fmnist':
+        train_path = os.path.join('data', options['dataset'], 'data', 'train')
+        test_path = os.path.join('data', options['dataset'], 'data', 'test')
+        dataset = read_data(train_path, test_path) # return clients, groups, train_data, test_data
+        for user in dataset[0]:
+            for i in range(len(dataset[2][user]['y'])):
+                dataset[2][user]['x'][i] = reshapeFmnist(dataset[2][user]['x'][i])
+                dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i])
+            for i in range(len(dataset[3][user]['y'])):
+                dataset[3][user]['x'][i] = reshapeFmnist(dataset[3][user]['x'][i])
                 dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i])
     else:
         train_path = os.path.join('data', options['dataset'], 'data', 'train')
@@ -143,9 +167,6 @@ def main():
         for user in dataset[0]:
             for i in range(len(dataset[2][user]['y'])):
                 dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i])
-
-        #print('reshape labels in test dataset')
-        for user in dataset[0]:
             for i in range(len(dataset[3][user]['y'])):
                 dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i])
     np.random.seed(12)
@@ -153,40 +174,29 @@ def main():
     test_user=dataset[0][options['clients_per_round']:]
     del dataset[0][options['clients_per_round']:]
 
-    sams_train=[]
-    sams_taget=[]
-    for user in dataset[0]:
-        sams_train.extend(dataset[2][user]['y'])
-        sams_train.extend(dataset[3][user]['y'])
-    for user in test_user:
-        sams_taget.extend(dataset[2][user]['y'])
-        sams_taget.extend(dataset[3][user]['y'])
+    return test_user, dataset
 
-    sams_train=[np.argmax(x) for x in sams_train]
-    sams_taget = [np.argmax(x) for x in sams_taget]
-    #print(sams_train)
-    import collections
-    c_train=collections.Counter(sams_train)
-    c_target=collections.Counter(sams_taget)
-    print(c_target)
-    p1={}
-    p2={}
-    s1=0
-    s2=0
-    for i in range(10):
-        s1 += c_train[i]
-        s2 += c_target[i]
-    for i in range(10):
-        #print(i)
-        p1[i]=c_train[i]/s1
-        p2[i]=c_target[i]/s2
-    print(p1)
-    print(p2)
+def main():
+
+    # suppress tf warnings
+    tf.logging.set_verbosity(tf.logging.ERROR)
+    
+    # parse command line arguments
+    options, learner, optimizer = read_options()
+
+    test_user,dataset=prepare_dataset(options)
+
+    # define theta_c save path
+    # theta_c_path='/root/TC174611125/fmaml/fmaml_mac/theta_c/{}_theata_c.mat'.format(options['dataset'])
+    theta_c_path = '/root/TC174611125/fmaml/fmaml_mac/theta_c/{}_theata_c_R{}.mat'.format(options['dataset'],options['num_rounds'])
+    dir_path = os.path.dirname(theta_c_path)
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
 
     #、 o00000007理论 call appropriate trainer
     loss_save_path='losses_OPT_{}_Dataset{}_round_{}_rho_{}.mat'.format(options['optimizer'],options['dataset'],options['num_rounds'],options['rho'])
     if options['isTrain']==True:
-        t = optimizer(options, learner, dataset)
+        t = optimizer(options, learner, dataset,theta_c_path)
         loss_history=t.train()
         io.savemat(loss_save_path, {'losses': loss_history})
         plot_losses(loss_history)
@@ -200,9 +210,10 @@ def main():
     else:
         weight=load_weights('{}_{}_weights.mat'.format(options['dataset'],options['model']))
 
-    if options['labmda']==0 and options['isTrain']==True:
+    #save theta_c
+    if options['pretrain']:
         w_names = t.client_model.get_param_names()
-        save_weights(weight, w_names,'{}_{}_weights.mat'.format(options['dataset'],options['model']))
+        save_weights(weight, w_names,theta_c_path)
 
     loss_test=dict()
     accs=dict()

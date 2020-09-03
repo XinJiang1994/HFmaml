@@ -38,7 +38,8 @@ def plot_result(filenames,fig_size=(14,8)):
 if __name__=='__main__':
     # filenames = ['losses_OPT_HFfmaml_Datasetcifar10_round_150_rho_0.5.mat', 'losses_OPT_fmaml_Datasetcifar10_round_150.mat',
     #              'losses_OPT_fedavg_Datasetcifar10_round_150.mat']
-    filenames=['losses_OPT_HFfmaml_Datasetcifar10_round_500_rho_1.mat']
-    plot_result(filenames)
+    filenames_1=['losses_OPT_HFfmaml_Datasetcifar10_round_200_rho_1.0.mat','losses_OPT_fmaml_Datasetcifar10_round_200_L5.mat','losses_OPT_fedavg_Datasetcifar10_round_200_L5.mat']
+    filenames_5=['']
+    plot_result(filenames_1)
 
 

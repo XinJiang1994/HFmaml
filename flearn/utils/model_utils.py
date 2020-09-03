@@ -5,6 +5,12 @@ from scipy import io
 import numpy as np
 import tensorflow as tf
 
+
+def active_func(x):
+    # return tf.maximum(x, leak * x)
+    return tf.nn.elu(x)
+
+
 def lrelu(x, leak=0.2, name="lrelu"):
     return tf.maximum(x, leak * x)
 
