@@ -48,13 +48,14 @@ class BaseModel(object):
                 "classes": tf.argmax(input=tf.nn.softmax(logits_final, name="softmax_tensor"), axis=1),
                 "probabilities": tf.nn.softmax(logits_final, name="softmax_tensor")
             }
-            g_and_v = self.optimizer2.compute_gradients(loss_test)
-            grads_test, _ = zip(*g_and_v)
-            test_op = self.optimizer2.apply_gradients(g_and_v, global_step=tf.train.get_global_step())
             pred_test = tf.argmax(input=logits_test, axis=1)
             self.test_acc = tf.reduce_mean(
                 tf.cast(tf.equal(tf.cast(tf.argmax(input=self.labels_test, axis=1), dtype=tf.float32),
                                  tf.cast(pred_test, dtype=tf.float32)), dtype=tf.float32))
+
+            g_and_v = self.optimizer2.compute_gradients(loss_test)
+            grads_test, _ = zip(*g_and_v)
+            test_op = self.optimizer2.apply_gradients(g_and_v, global_step=tf.train.get_global_step())
 
             eval_metric_ops = tf.reduce_mean(
                 tf.cast(tf.equal(tf.cast(tf.argmax(input=self.labels_test, axis=1), dtype=tf.float32),
@@ -150,3 +151,10 @@ class BaseModel(object):
                 feed_dict={self.features_train: data['x'], self.labels_train: data['y'],
                            self.features_test: data['x'], self.labels_test: data['y']})
         return acc, loss_train, preds
+
+
+    def target_acc_while_train(self, train_data, test_data):
+        target_test_acc = self.sess.run(self.test_acc,
+                            feed_dict={self.features_train: train_data['x'], self.labels_train: train_data['y'],
+                                       self.features_test: test_data['x'], self.labels_test: test_data['y']})
+        return target_test_acc

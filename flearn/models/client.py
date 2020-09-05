@@ -11,7 +11,6 @@ class Client(object):
         # print('@client line 13 eval_data:', self.eval_data['x'].shape)
         # print('@client line 13 train_data:',self.train_data['x'].shape)
         # print('@client line 13 train_data type:', type(self.train_data['x']))
-
         #self.data = self.train_data.update(self.eval_data)
         self.data = {key: (self.train_data[key], self.eval_data[key]) for key in self.train_data.keys() & self.eval_data}
         for k,v in self.data.items():
@@ -126,6 +125,10 @@ class Client(object):
         #batch_size = len(self.train_data['y'])
         soln = self.model.fast_adapt(self.train_data, num_epochs)  # , batch_size)
         return soln
+
+    def target_acc_while_train(self):
+        return self.model.target_acc_while_train(self.train_data,self.eval_data), self.test_num
+
 
     #def test_loss(self):
     #    loss = self.model.test_loss(self.eval_data)

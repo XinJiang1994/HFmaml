@@ -108,5 +108,8 @@ class Client(object):
         soln= self.model.fast_adapt(self.train_data, num_epochs)  # , batch_size)
         return soln
 
+    def target_acc_while_train(self):
+        return self.model.target_acc_while_train(self.train_data,self.eval_data), self.num_test
+
     # all these functions have been defined for the model, so directly
     # use them here

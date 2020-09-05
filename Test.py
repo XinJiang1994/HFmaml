@@ -41,10 +41,23 @@ from flearn.utils.model_utils import load_weights
 #     data=unpickle(p)
 #     print(data.keys())
 
+import os
+import pandas as pd
+def save_result(filename,records,col_name = ['Lambda','Accuracy', 'AccSavePath']):
+    # 如果文件夹不存在则创建文件夹
+    dir_name=os.path.dirname(filename)
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    # 如果文件不存在，说明是第一次保存，先创建文件的title
+    if not os.path.exists(filename):
+        df_title=pd.DataFrame(data=[],columns=col_name)
+        df_title.to_csv(filename, encoding='utf-8', mode='a', index=False)
+    df = pd.DataFrame(data=records,columns=col_name)
+    df.to_csv(filename, encoding='utf-8',mode='a', index=False,header=0)#不要保存header，不然会重复保存header
+    print("The results have been successfully saved")
 
 def main():
-    theta_c = load_weights('/root/TC174611125/fmaml/fmaml_mac/theta_c/cifar10_theata_c.mat')
-    print(theta_c)
+    save_result('./results/TestFile2.csv',[[2,0.44,'acc_save_path']],col_name=['Lambda','Accuracy','acc_save_path'])
 
 
 

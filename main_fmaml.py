@@ -196,17 +196,22 @@ def main():
 
     num_users = len(dataset[0])
     # print('num users: ',num_users)
-    np.random.seed(12)
+    random.seed(1)
     random.shuffle(dataset[0])
     test_user = dataset[0][40:]
     del dataset[0][40:]
 
 
     # call appropriate trainer
-    t = optimizer(options, learner, dataset)
-    loss_history=t.train()
+    t = optimizer(options, learner, dataset,test_user)
+    loss_history,acc_history=t.train()
     losssavepath='losses_OPT_{}_Dataset_{}_beta{}_round{}_L{}.mat'.format(options['optimizer'],options['dataset'],options['beta'],options['num_rounds'],options['num_epochs'])
+    acc_savepath = 'Accuracies_OPT_{}_Dataset_{}_beta{}_round{}_L{}.mat'.format(options['optimizer'], options['dataset'],
+                                                                            options['beta'], options['num_rounds'],
+                                                                            options['num_epochs'])
+
     io.savemat(losssavepath, {'losses': loss_history})
+    io.savemat(acc_savepath, {'accuracies': acc_history})
 
     print('after training, start testing')
 
@@ -237,6 +242,7 @@ def main():
         tqdm.write(' Final loss: {}'.format(np.sum(loss_test)))
         print("Local average acc", np.sum(acc_test))
         print('loss save path: ',losssavepath)
+        print('acc save path: ',acc_savepath)
 
 
 def fmaml_test(trainer, learner, train_data, test_data, params, user_name, num_local_updates, weight):

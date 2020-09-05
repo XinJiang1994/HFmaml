@@ -38,8 +38,14 @@ def plot_result(filenames,fig_size=(14,8)):
 if __name__=='__main__':
     # filenames = ['losses_OPT_HFfmaml_Datasetcifar10_round_150_rho_0.5.mat', 'losses_OPT_fmaml_Datasetcifar10_round_150.mat',
     #              'losses_OPT_fedavg_Datasetcifar10_round_150.mat']
-    filenames_1=['losses_OPT_HFfmaml_Datasetcifar10_round_200_rho_1.0.mat','losses_OPT_fmaml_Datasetcifar10_round_200_L5.mat','losses_OPT_fedavg_Datasetcifar10_round_200_L5.mat']
-    filenames_5=['']
+    filenames_1=['Accuracies_OPT_HFfmaml_DatasetFmnist_round_100_rho_0.15.mat',
+                 'Accuracies_OPT_fedavg_DatasetFmnist_round_100_L5.mat',
+                 'Accuracies_OPT_fmaml_Dataset_Fmnist_beta0.005_round100_L5.mat',
+                 'Accuracies_OPT_fedavg_DatasetFmnist_round_100_L1.mat',
+                 'Accuracies_OPT_fmaml_Dataset_Fmnist_beta0.005_round100_L1.mat',
+                'Accuracies_OPT_fedavg_DatasetFmnist_round_100_L10.mat' ,
+                 'Accuracies_OPT_fmaml_Dataset_Fmnist_beta0.005_round100_L10.mat'
+]
     plot_result(filenames_1)
 
 

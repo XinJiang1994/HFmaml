@@ -1,8 +1,5 @@
 import tensorflow as tf
-import numpy as np
 from flearn.utils.model_utils import batch_data
-from tensorflow.python import debug as tf_debug
-from tqdm import trange
 
 ### This is an implenmentation of Hessian Free maml meta learning algirithm propoesed by Sheng Yue####
 ### THis is Base model of the algorithm which implenments the optimization part####
@@ -20,7 +17,7 @@ class BaseModel(object):
             #self.sess = tf_debug.TensorBoardDebugWrapperSession(self.sess, "TC174611125:32005")
             self.weights = self.construct_weights()  # weights is a list
             tf.set_random_seed(123+self.seed)
-            self.features, self.labels= self.get_input()
+            self.features, self.labels,self.features_test,self.labels_test= self.get_input()
             self.eval_metric_ops,self.predictions_test, self.loss, self.optimize_op = self.optimize()
             self.saver = tf.train.Saver()
             self.sess.run(tf.global_variables_initializer())
@@ -33,11 +30,21 @@ class BaseModel(object):
             loss=self.loss_func(logits,self.labels)
 
 
+
+
             predictions_test = {
                 "classes": tf.argmax(input=logits, axis=1),
                 "probabilities": tf.nn.softmax(logits, name="softmax_tensor")
             }
             g_and_v = self.optimizer1.compute_gradients(loss)
+            fast_vars=[v - self.alpha * g for (g,v) in g_and_v]
+            logits_test=self.forward_func(self.features_test, fast_vars ,w_names, reuse=True)
+            self.loss_test=self.loss_func(logits_test,self.labels)
+            pred_test = tf.argmax(input=logits_test, axis=1)
+            self.test_acc = tf.reduce_mean(
+                tf.cast(tf.equal(tf.cast(tf.argmax(input=self.labels_test, axis=1), dtype=tf.float32),
+                                 tf.cast(pred_test, dtype=tf.float32)), dtype=tf.float32))
+
             grads_test, _ = zip(*g_and_v)
             optimize_op = self.optimizer1.apply_gradients(g_and_v, global_step=tf.train.get_global_step())
             eval_metric_ops = tf.reduce_mean(tf.cast(tf.equal(tf.cast(tf.argmax(input=self.labels, axis=1), dtype=tf.float32),
@@ -148,6 +155,13 @@ class BaseModel(object):
                                       feed_dict={self.features_train: X_train, self.labels_train: y_train,
                                                  self.features_test: X_test, self.labels_test: y_test})
 
+    def target_acc_while_train(self, train_data, test_data):
+        target_test_acc = self.sess.run(self.test_acc,
+                                            feed_dict={self.features: train_data['x'],
+                                                       self.labels: train_data['y'],
+                                                       self.features_test: test_data['x'],
+                                                       self.labels_test: test_data['y']})
+        return target_test_acc
         #with self.graph.as_default():
         #    model_grads = self.sess.run(self.grads,
         #                                feed_dict={self.features_test: data['x'], self.labels_test: data['y']})

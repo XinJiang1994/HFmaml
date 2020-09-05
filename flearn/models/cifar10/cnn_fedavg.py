@@ -35,7 +35,10 @@ class Model(BaseModel):
         '''
         features = tf.placeholder(tf.float32, shape=[None, 32,32,3], name='features_train')
         labels = tf.placeholder(tf.float32, shape=[None, 10], name='labels_train')
-        return features,labels
+
+        features_test = tf.placeholder(tf.float32, shape=[None, 32, 32, 3], name='features_test')
+        labels_test = tf.placeholder(tf.float32, shape=[None, 10], name='labels_test')
+        return features,labels,features_test,labels_test
 
     def forward_func(self,inp, weights, w_names , reuse = False):
 

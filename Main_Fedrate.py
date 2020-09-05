@@ -170,52 +170,25 @@ def main():
                 dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i])
             for i in range(len(dataset[3][user]['y'])):
                 dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i])
-    np.random.seed(12)
+    random.seed(1)
+    # np.random.seed(123)
     random.shuffle(dataset[0])
     test_user = dataset[0][options['clients_per_round']:]
     del dataset[0][options['clients_per_round']:]
 
-    sams_train = []
-    sams_taget = []
-    for user in dataset[0]:
-        sams_train.extend(dataset[2][user]['y'])
-        sams_train.extend(dataset[3][user]['y'])
-    for user in test_user:
-        sams_taget.extend(dataset[2][user]['y'])
-        sams_taget.extend(dataset[3][user]['y'])
-
-    sams_train = [np.argmax(x) for x in sams_train]
-    sams_taget = [np.argmax(x) for x in sams_taget]
-    # print(sams_train)
-
-    import collections
-    c_train = collections.Counter(sams_train)
-    c_target = collections.Counter(sams_taget)
-
-    print(c_target)
-
-    p1 = {}
-    p2 = {}
-    s1 = 0
-    s2 = 0
-    for i in range(10):
-        s1 += c_train[i]
-        s2 += c_target[i]
-    for i in range(10):
-        # print(i)
-        p1[i] = c_train[i] / s1
-        p2[i] = c_target[i] / s2
-
-    print(p1)
-    print(p2)
-
     # 、 o00000007理论 call appropriate trainer
-    t = optimizer(options, learner, dataset)
-    loss_history=t.train()
+    t = optimizer(options, learner, dataset,test_user)
+    loss_history,acc_history=t.train()
     loss_save_path='losses_OPT_{}_Dataset{}_round_{}_L{}.mat'.format(options['optimizer'], options['dataset'], options['num_rounds'],options['num_epochs'])
+    acc_save_path = 'Accuracies_OPT_{}_Dataset{}_round_{}_L{}.mat'.format(options['optimizer'], options['dataset'],
+                                                                       options['num_rounds'], options['num_epochs'])
+
     io.savemat(
         loss_save_path,
         {'losses': loss_history})
+    io.savemat(
+        acc_save_path,
+        {'accuracies': acc_history})
     print('after training, start testing')
 
     client_params = t.latest_model
@@ -237,6 +210,7 @@ def main():
     tqdm.write(' Final loss: {}'.format(np.sum(loss_test)))
     print("Local average acc", np.sum(acc_test))
     print('loss_save_path',loss_save_path)
+    print('acc_save_path', acc_save_path)
     # for i,user in enumerate(test_user):
     #     print(user)
     #     test_data=dataset[3][user]

@@ -1,0 +1,4 @@
+Lambda,Accuracy,acc_save_path
+0,0.573076928,Accuracies_OPT_HFfmaml_Datasetcifar10_round_100_rho_1.0_lambda0.0_pretrainFalse_SN3.mat
+0.5,0.726923078,Accuracies_OPT_HFfmaml_Datasetcifar10_round_100_rho_1.0_lambda0.5_pretrainFalse_SN3.mat
+1,0.653846169,Accuracies_OPT_HFfmaml_Datasetcifar10_round_100_rho_1.0_lambda1.0_pretrainFalse_SN3.mat

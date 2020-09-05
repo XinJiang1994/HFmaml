@@ -5,11 +5,13 @@ import random
 import os
 import tensorflow as tf
 from flearn.utils.model_utils import read_data,load_weights,save_weights
+from utils.utils import savemat
 
 from flearn.models.client_HFmaml import Client
 from tqdm import  tqdm
 
 from scipy import io
+import pandas as pd
 
 os.environ['TF_CPP_MIN_LOG_LEVEL']='3'
 tf.reset_default_graph()
@@ -43,9 +45,9 @@ def read_options():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--optimizer',default='HFfmaml',help='name of optimizer;',type=str,choices=OPTIMIZERS)
-    parser.add_argument('--dataset',default='cifar100',help='name of dataset;',type=str,choices=DATASETS)
+    parser.add_argument('--dataset',default='cifar10',help='name of dataset;',type=str,choices=DATASETS)
     parser.add_argument('--model',default='cnn',help='name of model;',type=str)
-    parser.add_argument('--num_rounds',default=0,help='number of rounds to simulate;',type=int)
+    parser.add_argument('--num_rounds',default=10,help='number of rounds to simulate;',type=int)
     parser.add_argument('--eval_every',default=1,help='evaluate every rounds;',type=int)
     parser.add_argument('--clients_per_round',default=40,help='number of clients trained per round;',type=int)
     parser.add_argument('--batch_size',default=100,help='batch size when clients train on data;',type=int)
@@ -55,11 +57,12 @@ def read_options():
     # parser.add_argument('--mu',help='constant for prox;',type=float,default=0.01)
     parser.add_argument('--seed',default=0,help='seed for randomness;',type=int)
     parser.add_argument('--labmda',default=1,help='labmda for regularizer',type=float)
-    parser.add_argument('--rho',default=0.5,help='rho for regularizer',type=float)
+    parser.add_argument('--rho',default=0.35,help='rho for regularizer',type=float)
     parser.add_argument('--mu_i',default=0,help='mu_i for optimizer',type=int)
     parser.add_argument('--adapt_num', default=1, help='adapt number', type=int)
-    parser.add_argument('--isTrain', default=True, help='load trained wights', type=bool)
+    parser.add_argument('--isTrain', default=False, help='load trained wights', type=bool)
     parser.add_argument('--pretrain', default=False, help='Pretrain to get theta_c', type=bool)
+    parser.add_argument('--sourceN', default=False, help='source node class num used', type=int)
 
 
     try: parsed = vars(parser.parse_args())
@@ -124,7 +127,7 @@ def reshapeFmnist(x):
 def prepare_dataset(options):
     # read data
     if options['dataset']=='cifar10' or options['dataset']=='cifar100':
-        data_path = os.path.join('data', options['dataset'], 'data')
+        # data_path = os.path.join('data', options['dataset'], 'data')
         # dataset = read_data_xin(data_path)  # return clients, groups, train_data, test_data
         train_path = os.path.join('data', options['dataset'], 'data', 'train')
         test_path = os.path.join('data', options['dataset'], 'data', 'test')
@@ -169,9 +172,11 @@ def prepare_dataset(options):
                 dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i])
             for i in range(len(dataset[3][user]['y'])):
                 dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i])
-    np.random.seed(12)
+    random.seed(1)
     random.shuffle(dataset[0])
     test_user=dataset[0][options['clients_per_round']:]
+    print('@ main print test user:',test_user)
+
     del dataset[0][options['clients_per_round']:]
 
     return test_user, dataset
@@ -188,70 +193,66 @@ def main():
 
     # define theta_c save path
     # theta_c_path='/root/TC174611125/fmaml/fmaml_mac/theta_c/{}_theata_c.mat'.format(options['dataset'])
-    theta_c_path = '/root/TC174611125/fmaml/fmaml_mac/theta_c/{}_theata_c_R{}.mat'.format(options['dataset'],options['num_rounds'])
+    theta_c_path = '/root/TC174611125/fmaml/fmaml_mac/theta_c/{}_theata_c.mat'.format(options['dataset'])
     dir_path = os.path.dirname(theta_c_path)
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
 
     #、 o00000007理论 call appropriate trainer
-    loss_save_path='losses_OPT_{}_Dataset{}_round_{}_rho_{}.mat'.format(options['optimizer'],options['dataset'],options['num_rounds'],options['rho'])
+    loss_save_path='./log/losses_OPT_{}_Dataset{}_round_{}_rho_{}_lambda{}_pretrain{}_SN{}.mat'.format(options['optimizer'],options['dataset'],options['num_rounds'],options['rho'],options['labmda'],options['pretrain'],options['sourceN'])
+    acc_save_path='./log/Accuracies_OPT_{}_Dataset{}_round_{}_rho_{}_lambda{}_pretrain{}_SN{}.mat'.format(options['optimizer'],options['dataset'],options['num_rounds'],options['rho'],options['labmda'],options['pretrain'],options['sourceN'])
     if options['isTrain']==True:
-        t = optimizer(options, learner, dataset,theta_c_path)
-        loss_history=t.train()
-        io.savemat(loss_save_path, {'losses': loss_history})
-        plot_losses(loss_history)
-
-
-        print('after training, start testing')
-
+        t = optimizer(options, learner, dataset,theta_c_path,test_user)
+        loss_history,acc_history=t.train()
+        savemat(loss_save_path, {'losses': loss_history})
+        savemat(acc_save_path,{'accuracies':acc_history})
+        print('Finished training')
         client_params = t.latest_model
-
         weight = client_params
     else:
-        weight=load_weights('{}_{}_weights.mat'.format(options['dataset'],options['model']))
+        # weight=load_weights('{}_{}_trained_weights.mat'.format(options['dataset'],options['model']))
+        weight = load_weights(theta_c_path)
 
     #save theta_c
-    if options['pretrain']:
+    if options['pretrain'] and options['isTrain']:
+        print('######################### Saving pretrained thetaC .............>>>>>>>>>>>>>>>>>')
         w_names = t.client_model.get_param_names()
         save_weights(weight, w_names,theta_c_path)
 
+    loss_test, acc_test = target_test(test_user,learner,dataset,options,weight)
+    tqdm.write(' Final loss: {}'.format(np.sum(loss_test)))
+    print("Local average acc", np.sum(acc_test))
+    print("loss_save_path:", loss_save_path)
+    print("acc_save_path:", acc_save_path)
+    # save_result('./results/ThetaC_results.csv',[[options['labmda'],np.sum(acc_test),acc_save_path]],col_name=['Lambda','Accuracy','acc_save_path'])
+    save_result('./results/contrast_{}_{}.csv'.format(options['dataset'],['optimizer']), [[options['labmda'], np.sum(acc_test), acc_save_path]],
+                col_name=['Lambda', 'Accuracy', 'acc_save_path'])
+
+
+def target_test(test_user,learner,dataset,options,weight):
     loss_test=dict()
     accs=dict()
     num_test=dict()
     for i,user in enumerate(test_user):
-        loss_test[i],accs[i],num_test[i]=fmaml_test(trainer=t, learner=learner, train_data=dataset[2][user], test_data=dataset[3][user],
+        loss_test[i],accs[i],num_test[i]=fmaml_test(learner=learner, train_data=dataset[2][user], test_data=dataset[3][user],
                 params=options, user_name=user, weight= weight)
     loss_test=list(loss_test.values())
     accs=list(accs.values())
     num_test=list(num_test.values())
     loss_test = [l*n/np.sum(num_test) for l,n in zip(loss_test,num_test)]
     acc_test = [a * n/np.sum(num_test) for a, n in zip(accs, num_test)]
-    tqdm.write(' Final loss: {}'.format(np.sum(loss_test)))
-    print("Local average acc",np.sum(acc_test))
-    print("loss_save_path:",loss_save_path)
-    # for i,user in enumerate(test_user):
-    #     print(user)
-    #     test_data=dataset[3][user]
-    #     ys=[]
-    #     for y in (test_data['y']):
-    #         ys.append(np.argmax(y))
-    #     print(ys)
-    #     print(len(ys))
-    #print(preds)
+    return loss_test,acc_test
 
-def fmaml_test(trainer, learner, train_data, test_data, params, user_name, weight):
-    print('fmaml test')
-
+def fmaml_test(learner, train_data, test_data, params, user_name, weight):
+    print('HFmaml test')
+    params['w_i']=1
     #client_params = trainer.latest_model
     client_model = learner(params)  # changed remove star
-
 
     test_client = Client(user_name, [], train_data, test_data, client_model)
     test_client.set_params(weight)
 
     _ = test_client.fast_adapt(params['adapt_num'])
-
-    # test_client.set_params(soln)
 
     acc, test_loss, test_num,preds = test_client.test_test()
 
@@ -259,12 +260,19 @@ def fmaml_test(trainer, learner, train_data, test_data, params, user_name, weigh
 
     return test_loss,acc,test_num
 
-import matplotlib.pyplot as plt
-def plot_losses(losses):
-    plt.plot(losses)
 
-
-
+def save_result(filename,records,col_name = ['Lambda','Accuracy', 'AccSavePath']):
+    # 如果文件夹不存在则创建文件夹
+    dir_name=os.path.dirname(filename)
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    # 如果文件不存在，说明是第一次保存，先创建文件的title
+    if not os.path.exists(filename):
+        df_title=pd.DataFrame(data=[],columns=col_name)
+        df_title.to_csv(filename, encoding='utf-8', mode='a', index=False)
+    df = pd.DataFrame(data=records,columns=col_name)
+    df.to_csv(filename, encoding='utf-8',mode='a', index=False,header=0)#不要保存header，不然会重复保存header
+    print("The results have been successfully saved")
 
 if __name__ == '__main__':
     main()

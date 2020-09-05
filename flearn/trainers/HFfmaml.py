@@ -2,15 +2,20 @@ import numpy as np
 from tqdm import trange, tqdm
 from flearn.utils.model_utils import load_weights
 from .fedbase_HFmaml import BaseFedarated
+from flearn.models.client_HFmaml import Client
 
 class Server(BaseFedarated):
-    def __init__(self, params, learner, dataset,theta_c_path):
+    def __init__(self, params, learner, datasets,theta_c_path,test_user):
 
-        print('Using Federated MAML to Train')
+        print('Using HFmaml to Train')
         self.theta_c_path=theta_c_path
         self.lamda=params['labmda']
-        _, _, self.train_data, self.test_data = dataset
-        super(Server, self).__init__(params, learner, dataset)
+        self.test_user=test_user
+        # self.learner=learner #super class has already set self.learner
+        self.params=params
+        self.datasets_data=datasets #注意这里的dataset_data是真的dataset，还有一个self.dataset实际是dataset name
+        _, _, self.train_data, self.test_data = datasets
+        super(Server, self).__init__(params, learner, datasets)
         ### @xinjiang set theta_c ### end
         self.set_theta_c()
 
@@ -19,36 +24,32 @@ class Server(BaseFedarated):
         ## num_rounds is k
         ## num_epochs should set 1 in HFfmaml
         loss_history=[]
+        acc_history=[]
         for i in trange(self.num_rounds, desc='Round: ', ncols=120):
             # test model
             if i % self.eval_every == 0:
+                # evalute source node
                 for c in self.clients:
-                    # communicate the latest model
                     c.set_params(self.latest_model)
-                # stats = self.test()
                 stats_train = self.train_error_and_loss()
-                # print(stats_train)
-                # self.metrics.accuracies.append(stats)
-                # self.metrics.train_accuracies.append(stats_train)
                 tot_sams=np.sum(stats_train[2])
-                # tmp=np.sum([np.sum(self.lamda * ( th- thc ) ** 2) for th,thc in zip(self.latest_model,self.theta_c)])
                 losses=[ n / tot_sams * loss for n,loss in zip(stats_train[2],stats_train[4])]
                 accs = [n / tot_sams * acc for n, acc in zip(stats_train[2], stats_train[3])]
                 accs_train = [n / tot_sams * acc for n, acc in zip(stats_train[2], stats_train[5])]
-                # print('@HFmaml line32 stats_train:',stats_train[2:])
-                tqdm.write('At round {} training loss: {}; acc_train:{}; acc_test:{}'.format(i,np.sum(losses),np.sum(accs_train),np.sum(accs)))
+
+                # evalute target node
+                acc_target='None'
+                # acc_target=target_test2(self.test_user,self.learner,self.datasets_data,self.params,self.latest_model)
+
+                # print evalution results
+                tqdm.write('At round {} training loss: {}; acc_train:{}; acc_test:{}, target acc:{}'.format(i,np.sum(losses),np.sum(accs_train),np.sum(accs),acc_target))
                 loss_history.append(np.sum(losses))
-            # choose M clients prop to data size, here need to choose all
+                acc_history.append(acc_target)
             selected_clients = self.select_clients(i, num_clients=self.clients_per_round)
-            # selected_clients=self.clients
             csolns = [] # buffer for receiving client solutions
             yy_ks = []
             #for c in tqdm(selected_clients, desc='Client: ', leave=False, ncols=120):
             for ci,c in enumerate(selected_clients):
-                # if ci==0:
-                #     grads=c.get_grads()
-                #     grads_sum0=[np.sum(x**2) for x in grads]
-                #     print('@HFfmaml line 41 sum grads:',np.sqrt(np.sum(grads_sum0)))
                 # communicate the latest model
                 c.model.receive_global_theta(self.latest_model)
                 # solve minimization locally
@@ -58,26 +59,17 @@ class Server(BaseFedarated):
                 csolns.append(soln)
                 yy_ks.append(yy_k)
                 # track communication cost
-                # self.metrics.update(rnd=i, cid=c.id, stats=stats)
                 # update model
             self.latest_model = self.aggregate(csolns,yy_ks)
-            #print('@HFfmaml line48 latest_model',self.latest_model)
-            # final test model
-        stats = self.test()
         stats_train = self.train_error_and_loss()
 
-        # self.metrics.accuracies.append(stats)
-        # self.metrics.train_accuracies.append(stats_train)
         tqdm.write('At round {} training accuracy: {}'.format(self.num_rounds,
                                                                   np.sum(stats_train[3]) * 1.0 / np.sum(
                                                                       stats_train[2])))
-        #print(len(stats_train))
         tqdm.write('At round {} training loss: {}'.format(self.num_rounds,np.mean(stats_train[4])))
-        # save server model
-        # self.metrics.write()
         self.save()
 
-        return loss_history
+        return loss_history,acc_history
     ##@xinjiang
     def set_theta_c(self):
         if self.lamda == 0:
@@ -89,3 +81,24 @@ class Server(BaseFedarated):
             # theta_c=[np.random.normal(0.01, 0.5, p.shape) for p in model_param]
             # print('@HFmaml line 78 theta_c:', theta_c)
         self.theta_c=theta_c
+
+
+def target_test2(test_user,learner,dataset,options,weight):
+    accs=dict()
+    num_test=dict()
+    for i,user in enumerate(test_user):
+        accs[i],num_test[i]=final_test(learner=learner, train_data=dataset[2][user], test_data=dataset[3][user],
+                params=options, user_name=user, weight= weight)
+    accs=list(accs.values())
+    num_test=list(num_test.values())
+    acc_test = [a * n/np.sum(num_test) for a, n in zip(accs, num_test)]
+    return np.sum(acc_test)
+
+def final_test(learner, train_data, test_data, params, user_name, weight):
+    # print('HFmaml test')
+    params['w_i']=1
+    client_model = learner(params)  # changed remove star
+    test_client = Client(user_name, [], train_data, test_data, client_model)
+    test_client.set_params(weight)
+    acc,numsam = test_client.target_acc_while_train()
+    return acc,numsam
