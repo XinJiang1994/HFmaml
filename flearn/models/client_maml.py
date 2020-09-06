@@ -9,13 +9,9 @@ class Client(object):
         self.group = group
         self.train_data = {k: np.array(v) for k,v in train_data.items()}
         self.eval_data = {k: np.array(v) for k,v in eval_data.items()}
-        self.data = {key: (self.train_data[key], self.eval_data[key]) for key in
-                     self.train_data.keys() & self.eval_data}
-        for k, v in self.data.items():
-            self.data[k] = np.vstack(v)
         self.train_samples = len(self.train_data['y'])
         self.test_num=len(self.eval_data['y'])
-        self.num_samples = len(self.data['y']) # why this could be zero, this leads to the problem, this is just one datapoint
+        self.num_samples = self.train_samples + self.test_num # why this could be zero, this leads to the problem, this is just one datapoint
         # need to check the definition of num_samples
 
 

@@ -60,12 +60,15 @@ def main():
     save_result('./results/TestFile2.csv',[[2,0.44,'acc_save_path']],col_name=['Lambda','Accuracy','acc_save_path'])
 
 
+import tensorflow as tf
 
 def test():
-    data_path='/root/TC174611125/fmaml/fmaml_mac/data/cifar10/center_data.npz'
-    data = np.load(data_path)
-    print(data['X'])
+    tf.set_random_seed(123)
+    x=tf.Variable(tf.truncated_normal([2,5], stddev=0.01))
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        print(sess.run(x))
 
 if __name__=="__main__":
-    main()
-    # test()
+    # main()
+    test()

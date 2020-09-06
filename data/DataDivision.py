@@ -9,8 +9,8 @@ from tqdm import trange
 import collections
 import struct
 
-random.seed(13)
-np.random.seed(14)
+# random.seed(13)
+# np.random.seed(14)
 
 
 def read_Fmnist_image(file_name):
@@ -145,12 +145,12 @@ def prepare_cifar10():
     # s_y=y.shape
     # y=y.reshape((-1, 1))
     # combined = np.concatenate((X, y), axis=1)
-    # np.random.seed(123)
+    # np.random.seed(1)
     # np.random.shuffle(combined)
     # split_pos = s_X[1]
     # X, y = np.split(combined, [split_pos], axis=1)
-    # # X=np.reshape(X,s_X)
-    # y=np.squeeze(y)
+    # X=np.reshape(X,s_X)
+    y=np.squeeze(y)
 
     print('#####################y.shape:',y.shape)
 
@@ -204,7 +204,7 @@ def shuffle_data(d_fianl):
         y = y.reshape((-1, 1))
         combined = np.concatenate((X, y), axis=1)
         # print(("@line 157 combined.shape:", combined.shape))
-        np.random.seed(123)
+        np.random.seed(1)
         np.random.shuffle(combined)
         split_pos = combined.shape[1] - 1
         X, y = np.split(combined, [split_pos], axis=1)
@@ -213,6 +213,7 @@ def shuffle_data(d_fianl):
         # print('@line 164 y',y)
         # print('@line 165 y.shape', y.shape)
         # print('test')
+    np.random.seed(1)
     random.shuffle(udata_new)
     d_fianl = dict(zip(uid, udata_new))
     return d_fianl
@@ -437,6 +438,7 @@ class DataDivider():
             c_pos += n
 
             for class_idx in classes:
+                random.seed(1)
                 bias=random.randint(4,14)
                 idx_st=self.idx[class_idx]
                 idx_end=self.idx[class_idx]+self.a+bias

@@ -35,8 +35,9 @@ class Server(BaseFedarated):
                 losses=[ n / tot_sams * loss for n,loss in zip(stats_train[2],stats_train[4])]
                 accs = [n / tot_sams * acc for n, acc in zip(stats_train[2], stats_train[3])]
 
-                acc_target = target_test2(self.test_user, self.learner, self.datasets_data, self.params,
-                                          self.latest_model)
+                acc_target='XXX'
+                # acc_target = target_test2(self.test_user, self.learner, self.datasets_data, self.params,
+                #                           self.latest_model)
 
                 # print('@HFmaml line32 stats_train:',stats_train[2:])
                 tqdm.write('At round {} training loss: {}; acc:{}, target acc: {}'.format(i,np.sum(losses),np.sum(accs),acc_target))

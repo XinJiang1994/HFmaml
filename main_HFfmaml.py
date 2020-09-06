@@ -63,15 +63,16 @@ def read_options():
     parser.add_argument('--isTrain', default=False, help='load trained wights', type=bool)
     parser.add_argument('--pretrain', default=False, help='Pretrain to get theta_c', type=bool)
     parser.add_argument('--sourceN', default=False, help='source node class num used', type=int)
+    parser.add_argument('--R', default=0, help='the R th test', type=int)
 
 
     try: parsed = vars(parser.parse_args())
     except IOError as msg: parser.error(str(msg))
 
     # Set seeds------
-    random.seed(1 + parsed['seed'])
-    np.random.seed(12 + parsed['seed'])
-    tf.set_random_seed(123 + parsed['seed'])
+    # random.seed(1 + parsed['seed'])
+    # np.random.seed(12 + parsed['seed'])
+    # tf.set_random_seed(123 + parsed['seed'])
 
 
     # load selected model

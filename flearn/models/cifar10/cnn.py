@@ -1,4 +1,4 @@
-import numpy as np
+# from tensorflow import set_random_seed
 import tensorflow as tf
 from flearn.models.BaseModel import BaseModel
 
@@ -9,7 +9,7 @@ def active_func(x, leak=0.2, name="active_func"):
 
 
 def weight_variable(shape, name):
-    tf.set_random_seed(123)
+    # set_random_seed(123)
     initial = tf.truncated_normal(shape, stddev=0.1)
     return tf.Variable(initial, name=name)
 

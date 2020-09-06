@@ -45,8 +45,9 @@ class Server(BaseFedarated):
                 tqdm.write('At round {} training loss: {}; acc_train:{}; acc_test:{}, target acc:{}'.format(i,np.sum(losses),np.sum(accs_train),np.sum(accs),acc_target))
                 loss_history.append(np.sum(losses))
                 acc_history.append(acc_target)
-            selected_clients = self.select_clients(i, num_clients=self.clients_per_round)
-            csolns = [] # buffer for receiving client solutions
+            selected_clients=self.clients
+            # selected_clients = self.select_clients(i, num_clients=self.clients_per_round)
+            solns = [] # buffer for receiving client solutions
             yy_ks = []
             #for c in tqdm(selected_clients, desc='Client: ', leave=False, ncols=120):
             for ci,c in enumerate(selected_clients):
@@ -56,23 +57,23 @@ class Server(BaseFedarated):
                 # nodes optimization
                 soln,yy_k = c.solve_inner(num_epochs=self.num_epochs)
                 # gather solutions from client
-                csolns.append(soln)
+                solns.append(soln)
                 yy_ks.append(yy_k)
                 # track communication cost
                 # update model
-            self.latest_model = self.aggregate(csolns,yy_ks)
+            self.latest_model = self.aggregate(solns,yy_ks)
         stats_train = self.train_error_and_loss()
 
         tqdm.write('At round {} training accuracy: {}'.format(self.num_rounds,
                                                                   np.sum(stats_train[3]) * 1.0 / np.sum(
                                                                       stats_train[2])))
         tqdm.write('At round {} training loss: {}'.format(self.num_rounds,np.mean(stats_train[4])))
-        self.save()
+        # self.save()
 
         return loss_history,acc_history
     ##@xinjiang
     def set_theta_c(self):
-        if self.lamda == 0:
+        if self.labmda == 0:
             theta_c=self.client_model.get_params()
         else:
             print('#### Loading theta_c...')
@@ -81,6 +82,26 @@ class Server(BaseFedarated):
             # theta_c=[np.random.normal(0.01, 0.5, p.shape) for p in model_param]
             # print('@HFmaml line 78 theta_c:', theta_c)
         self.theta_c=theta_c
+
+    def aggregate(self, solns,yy_ks):
+
+        l_th_c = [2*self.labmda*t for t in self.theta_c]
+
+        # solns is n个node的param list
+
+        n=len(solns) # totally n nodes
+        m=len(solns[0]) #param list的length
+        # all rhos are the same, so we can just use self.rho
+        sum_rho = self.rho * n
+        sum_yy_theta=[]
+
+        for j in range(m):
+            tmp_v= np.zeros_like(solns[0][j])
+            for i in range(n):
+                tmp_v += (yy_ks[i][j]+self.rho * solns[i][j])
+            sum_yy_theta.append(tmp_v)
+        theta_kp1=[(ltc+syt)/(2*self.labmda + sum_rho) for ltc,syt in zip(l_th_c,sum_yy_theta)]
+        return theta_kp1
 
 
 def target_test2(test_user,learner,dataset,options,weight):
