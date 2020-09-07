@@ -53,8 +53,8 @@ class BaseModel(object):
 
             self.loss = self.loss_func(logits_test, self.labels_test)
 
-            grad_Ltest2phy = tf.gradients(self.loss, self.fast_vars)
-            # grad_Ltest2phy=[tf.ones_like(x) for x in grad_Ltest2phy]
+            grad_Ltest2phy = tf.gradients(self.loss,self.fast_vars)
+            # grad_Ltest2phy=[tf.zeros_like(x) for x in self.weights]
 
             self.grad_Ltest2weight = tf.gradients(self.loss, self.weights)
 
@@ -74,6 +74,7 @@ class BaseModel(object):
             grad_2 = list(grad_2)
 
             g_kp1 = [(g1 - g2) / (2 * self.delta) for g1, g2 in zip(grad_1, grad_2)]
+            # g_kp1=[tf.zeros_like(x) for x in self.weights]
 
             self.theta_i_kp1 = [tpkp1 - (yy + self.w_i * (g_phy - self.alpha * gg)) / self.rho for
                             tpkp1, yy, g_phy, gg in zip(theta_kp1, self.yy_k, grad_Ltest2phy, g_kp1)]
@@ -122,6 +123,7 @@ class BaseModel(object):
     def construct_yy_k(self):
         with self.graph.as_default():
             tv = self.weights
+            # tf.set_random_seed(123)
             yyk = [tf.Variable(tf.truncated_normal(x.shape, stddev=0.01), name='yyk_' + x.name.split(':', 1)[0],
                                dtype=tf.float32, trainable=False) for x in tv]
             # yyk = [tf.Variable(tf.zeros(x.shape), name='yyk_' + x.name.split(':', 1)[0],
@@ -134,7 +136,10 @@ class BaseModel(object):
 
     def solve_inner(self, train_data, test_data, num_epochs):
         self.k += 1
-        self.delta.load(1.0 / (self.k + 100) ** 2, self.sess)
+        # for cifar10 delta=1/(k+100)
+        #for Fmnist delta=1/(k*10)s
+        self.delta.load(1.0 / (self.k+100), self.sess)
+        # self.delta.load(1.0 / (self.k*10), self.sess)
 
         X_train = train_data['x']
         y_train = train_data['y']

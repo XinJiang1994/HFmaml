@@ -12,6 +12,256 @@ import struct
 random.seed(13)
 np.random.seed(14)
 
+class DataDivider():
+    def __init__(self,data_list,label_list,num_users=100,a=100,division_ratio=[1/3,1/3,1/3],train_test_ratio=0.8,savepath = './cifar10/',num_class=10):
+        assert np.sum(division_ratio) == 1, "sum of division_ratio not equal to 1"
+        if not os.path.exists(savepath):
+            os.mkdir(savepath)
+        self.data_list=data_list
+        self.label_list=label_list
+        self.num_users=num_users
+        self.a=a
+        self.division_ratio = division_ratio # ratio of users for each kind of distribution
+        self.train_test_ratio=train_test_ratio # ratio of trainset and testset
+        self.savepath=savepath
+        self.num_class=num_class
+        self.idx=[0]*num_class
+        self.pivots=self.get_pivots()
+        print('@line 95 pivots :',self.pivots)
+        self.source_node,self.target_node,self.d_remain=self.get_final_dataset()
+        self.source_train,self.source_test=self.generate_train_test(self.source_node,0.5)
+        self.target_train,self.target_test=self.generate_train_test(self.target_node,3/10)
+        self.train_data_remain, self.test_data_remain = self.generate_train_test(self.d_remain, 3 / 22)
+
+        train_data = {'users': [], 'user_data': {}, 'num_samples': []}
+        test_data = {'users': [], 'user_data': {}, 'num_samples': []}
+
+        train_data['users']=self.source_train['users']+self.target_train['users']
+        train_data['user_data']= {}
+        train_data['user_data'].update(self.source_train['user_data'])
+        train_data['user_data'].update(self.target_train['user_data'])
+        train_data['num_samples']=self.source_train['num_samples']+self.target_train['num_samples']
+
+        test_data['users'] = self.source_test['users'] + self.target_test['users']
+        test_data['user_data'] = {}
+        test_data['user_data'].update(self.source_test['user_data'])
+        test_data['user_data'].update(self.target_test['user_data'])
+        test_data['num_samples'] = self.source_test['num_samples'] + self.target_test['num_samples']
+        self.train_data=train_data
+        self.test_data=test_data
+
+    def get_pivots(self):
+        accumulate_sum_r = [0]
+        for i, r in enumerate(self.division_ratio):
+            accumulate_sum_r.append(np.sum(self.division_ratio[:i + 1]))
+        # user num is from 0 to 99,we use pivot_points to mark the bounds of different kinds of different nodes
+        pivot_points = [int(self.num_users * r) for r in accumulate_sum_r]
+        return pivot_points
+
+    def get_source_data(self,n=2,firstN_class=8):
+        # 循环取n类
+        st_idx = self.pivots[0]
+        end_idx = self.pivots[1]
+        dataset = {}
+        sample_num = 0
+        c_pos = 0
+        for u in range(st_idx, end_idx):
+            data_u = []
+            label_u = []
+            classes = []
+            c_st = c_pos
+            c_end = c_pos + n
+
+            for i in range(c_st, c_end):
+                classes.append(i % firstN_class) #从0-firstN_class类中取
+            print('@line 289 classes to get:', classes)
+            c_pos += n
+
+            for class_idx in classes:
+                random.seed(u)
+                bias = random.randint(0, 10)
+                idx_st = self.idx[class_idx]
+                idx_end = self.idx[class_idx] + self.a + bias
+                data_u.append(self.data_list[class_idx][idx_st:idx_end])
+                label_u.append(self.label_list[class_idx][idx_st:idx_end])
+                self.idx[class_idx] += self.a + bias
+                sample_num += self.a + bias
+            data_u = np.concatenate(data_u)
+            label_u = np.concatenate(label_u)
+            dataset[u] = {'X': data_u, 'y': label_u}
+        ls = []
+        for d_u in dataset.values():
+            # print('@line 182:',d_u)
+            ls += d_u['y'].tolist()
+        c = collections.Counter(ls)
+        print('line 292 sample num source:', sample_num)
+        print('@line293 num of each class in source:', c)
+        return dataset
+
+    def get_target_data(self,n=2):
+        # 循环取n类
+        st_idx = self.pivots[1]
+        end_idx = self.pivots[2]
+        dataset = {}
+        sample_num = 0
+        c_pos = 0
+        for u in range(st_idx, end_idx):
+            data_u = []
+            label_u = []
+            classes = []
+            c_st = c_pos
+            c_end = c_pos + n
+
+            for i in range(c_st, c_end):
+                classes.append(i % (self.num_class)) #从10类中取
+            print('@line 289 classes to get:', classes)
+            c_pos += n
+
+            for class_idx in classes:
+                random.seed(u)
+                bias = random.randint(10, 20)
+                idx_st = self.idx[class_idx]
+                idx_end = self.idx[class_idx] + self.a + bias
+                data_u.append(self.data_list[class_idx][idx_st:idx_end])
+                label_u.append(self.label_list[class_idx][idx_st:idx_end])
+                self.idx[class_idx] += self.a + bias
+                sample_num += self.a + bias
+            data_u = np.concatenate(data_u)
+            label_u = np.concatenate(label_u)
+            dataset[u] = {'X': data_u, 'y': label_u}
+        ls = []
+        for d_u in dataset.values():
+            # print('@line 182:',d_u)
+            ls += d_u['y'].tolist()
+        c = collections.Counter(ls)
+        print('line 292 sample num source:', sample_num)
+        print('@line293 num of each class in source:', c)
+        return dataset
+
+    def solve_remained_data(self):
+        # cloud nodes
+        n=2
+        num_samples=self.a*5
+        dataset = {}
+        sample_num = 0
+        c_pos = 0
+        for u in range(self.num_users):
+            data_u = []
+            label_u = []
+            classes = []
+            c_st = c_pos
+            c_end = c_pos + n
+            for i in range(c_st, c_end):
+                classes.append(i % (self.num_class-2)+2) # 从2-9类中取
+            print('@line 289 classes to get:', classes)
+            c_pos += n
+
+            for class_idx in classes:
+                random.seed(u)
+                bias = random.randint(0, 10)
+                idx_st = self.idx[class_idx]
+                idx_end = self.idx[class_idx] + num_samples + bias
+                data_u.append(self.data_list[class_idx][idx_st:idx_end])
+                label_u.append(self.label_list[class_idx][idx_st:idx_end])
+                self.idx[class_idx] += num_samples + bias
+                sample_num += (num_samples + bias)
+            data_u = np.concatenate(data_u)
+            label_u = np.concatenate(label_u)
+            dataset[u] = {'X': data_u, 'y': label_u}
+        ls = []
+        for d_u in dataset.values():
+            # print('@line 182:',d_u)
+            ls += d_u['y'].tolist()
+        c = collections.Counter(ls)
+        print('line 449 sample num dist5:', sample_num)
+        print('@450 num of each class in solve_remained_data:', c)
+        return dataset
+
+    def get_final_dataset(self):
+        source_node=self.get_source_data()
+        taget_node=self.get_target_data()
+
+        source_node=shuffle_data(source_node)
+        taget_node=shuffle_data(taget_node)
+
+        # d_fianl=source_node
+        # d_fianl.update(taget_node)
+
+
+        d_remain=self.solve_remained_data()
+        d_remain=shuffle_data(d_remain)
+
+        return source_node,taget_node,d_remain
+
+    def generate_train_test(self,dataset,train_test_ratio):
+        train_data = {'users': [], 'user_data': {}, 'num_samples': []}
+        test_data = {'users': [], 'user_data': {}, 'num_samples': []}
+
+        users=list(dataset.keys())
+        for i in users:
+            uname = 'f_{0:05d}'.format(i)
+            X = dataset[i]['X']
+            y = dataset[i]['y']
+            # train_len=int(self.train_test_ratio*X.shape[0])
+            train_len = int(train_test_ratio * X.shape[0])
+            test_len = X.shape[0] - train_len
+            X = X.tolist()
+            y = y.tolist()
+            train_data['users'].append(uname)
+            train_data['user_data'][uname] = {'x': X[:train_len], 'y': y[:train_len]}
+            train_data['num_samples'].append(train_len)
+            test_data['users'].append(uname)
+            test_data['user_data'][uname] = {'x': X[train_len:], 'y': y[train_len:]}
+            test_data['num_samples'].append(test_len)
+        print('num_samples of train data:',train_data['num_samples'])
+        print('num_samples of test data:',test_data['num_samples'])
+        print('sum num_samples of train data:',sum(train_data['num_samples']))
+        print('sum num_samples of test data:',sum(test_data['num_samples']))
+        return train_data,test_data
+
+    def save_data(self,pretrain=False):
+
+        if not pretrain:
+            train_path = os.path.join(self.savepath,
+                                          'data/train/all_data_train_u_{}_a{}_node_type{}.json'.format(self.num_users, self.a,
+                                                                                                       5))
+            test_path = os.path.join(self.savepath,
+                                         'data/test/all_data_test_u{}_a{}_node_type{}.json'.format(self.num_users, self.a,
+                                                                                                    5))
+            # print(self.test_data)
+            self.save(self.train_data,self.test_data,train_path,test_path)
+        if pretrain:
+            #solve the remain data
+            train_path_r = os.path.join(self.savepath,
+                                      'data/pretrain/remain_data_train_u_{}_a{}_node_type{}.json'.format(self.num_users, self.a,
+                                                                                                   5))
+            test_path_r = os.path.join(self.savepath,
+                                     'data/pretest/remain_data_test_u{}_a{}_node_type{}.json'.format(self.num_users, self.a,
+                                                                                                5))
+
+            self.save(self.train_data_remain, self.test_data_remain, train_path_r, test_path_r)
+
+
+    def save(self,train_data,test_data,train_path,test_path):
+        # train_path = os.path.join(self.savepath, 'data/train/all_data_0_niid_0_keep_10_train_9.json')
+        # test_path = os.path.join(self.savepath, 'data/test/all_data_0_niid_0_keep_10_test_9.json')
+        # 如果之前有数据需要先删除
+        os.system('rm -rf {}'.format(os.path.dirname(train_path)))
+        print('rm -rf {}'.format(os.path.dirname(train_path)))
+        os.system('rm -rf {}'.format(os.path.dirname(test_path)))
+        print('rm -rf {}'.format(os.path.dirname(test_path)))
+        dir_path = os.path.dirname(train_path)
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+        dir_path = os.path.dirname(test_path)
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+
+        with open(train_path, 'w') as outfile:
+            json.dump(train_data, outfile)
+        with open(test_path, 'w') as outfile:
+            json.dump(test_data, outfile)
+
 
 def read_Fmnist_image(file_name):
     '''
@@ -217,242 +467,13 @@ def shuffle_data(d_fianl):
     d_fianl = dict(zip(uid, udata_new))
     return d_fianl
 
-class DataDivider():
-    def __init__(self,data_list,label_list,num_users=100,a=100,division_ratio=[1/3,1/3,1/3],train_test_ratio=0.8,savepath = './cifar10/',num_class=10):
-        assert np.sum(division_ratio) == 1, "sum of division_ratio not equal to 1"
-        if not os.path.exists(savepath):
-            os.mkdir(savepath)
-        self.data_list=data_list
-        self.label_list=label_list
-        self.num_users=num_users
-        self.a=a
-        self.division_ratio = division_ratio # ratio of users for each kind of distribution
-        self.train_test_ratio=train_test_ratio # ratio of trainset and testset
-        self.savepath=savepath
-        self.num_class=num_class
-        self.idx=[0]*num_class
-        self.pivots=self.get_pivots()
-        print('@line 95 pivots :',self.pivots)
-        self.dataset_main,self.dataset_remain=self.get_final_dataset()
-        self.train_data,self.test_data=self.generate_train_test(self.dataset_main,self.train_test_ratio)
-        self.train_data_remain, self.test_data_remain = self.generate_train_test(self.dataset_remain,1/40)
-
-    def get_pivots(self):
-        accumulate_sum_r = [0]
-        for i, r in enumerate(self.division_ratio):
-            accumulate_sum_r.append(np.sum(self.division_ratio[:i + 1]))
-        # user num is from 0 to 99,we use pivot_points to mark the bounds of different kinds of different nodes
-        pivot_points = [int(self.num_users * r) for r in accumulate_sum_r]
-        return pivot_points
-
-    def get_source_data(self,n=2,firstN_class=3):
-        # 循环取n类
-        st_idx = self.pivots[0]
-        end_idx = self.pivots[1]
-        dataset = {}
-        sample_num = 0
-        c_pos = 0
-        for u in range(st_idx, end_idx):
-            data_u = []
-            label_u = []
-            classes = []
-            c_st = c_pos
-            c_end = c_pos + n
-
-            for i in range(c_st, c_end):
-                classes.append(i % firstN_class) #从0-7类中取
-            print('@line 289 classes to get:', classes)
-            c_pos += n
-
-            for class_idx in classes:
-                random.seed(1)
-                bias = random.randint(4, 14)
-                idx_st = self.idx[class_idx]
-                idx_end = self.idx[class_idx] + self.a + bias
-                data_u.append(self.data_list[class_idx][idx_st:idx_end])
-                label_u.append(self.label_list[class_idx][idx_st:idx_end])
-                self.idx[class_idx] += self.a + bias
-                sample_num += self.a + bias
-            data_u = np.concatenate(data_u)
-            label_u = np.concatenate(label_u)
-            dataset[u] = {'X': data_u, 'y': label_u}
-        ls = []
-        for d_u in dataset.values():
-            # print('@line 182:',d_u)
-            ls += d_u['y'].tolist()
-        c = collections.Counter(ls)
-        print('line 292 sample num source:', sample_num)
-        print('@line293 num of each class in source:', c)
-        return dataset
-
-    def get_target_data(self,n=2):
-        # 循环取n类
-        st_idx = self.pivots[1]
-        end_idx = self.pivots[2]
-        dataset = {}
-        sample_num = 0
-        c_pos = 0
-        for u in range(st_idx, end_idx):
-            data_u = []
-            label_u = []
-            classes = []
-            c_st = c_pos
-            c_end = c_pos + n
-
-            for i in range(c_st, c_end):
-                classes.append(i % (self.num_class-2)) #从10类中取
-            print('@line 289 classes to get:', classes)
-            c_pos += n
-
-            for class_idx in classes:
-                random.seed(1)
-                bias = random.randint(4, 14)
-                idx_st = self.idx[class_idx]
-                idx_end = self.idx[class_idx] + self.a + bias
-                data_u.append(self.data_list[class_idx][idx_st:idx_end])
-                label_u.append(self.label_list[class_idx][idx_st:idx_end])
-                self.idx[class_idx] += self.a + bias
-                sample_num += self.a + bias
-            data_u = np.concatenate(data_u)
-            label_u = np.concatenate(label_u)
-            dataset[u] = {'X': data_u, 'y': label_u}
-        ls = []
-        for d_u in dataset.values():
-            # print('@line 182:',d_u)
-            ls += d_u['y'].tolist()
-        c = collections.Counter(ls)
-        print('line 292 sample num source:', sample_num)
-        print('@line293 num of each class in source:', c)
-        return dataset
-
-    def solve_remained_data(self):
-        # cloud nodes
-        n=2
-        num_samples=self.a*10
-        dataset = {}
-        sample_num = 0
-        c_pos = 0
-        for u in range(self.num_users):
-            data_u = []
-            label_u = []
-            classes = []
-            c_st = c_pos
-            c_end = c_pos + n
-            for i in range(c_st, c_end):
-                classes.append(i % (self.num_class-2)+2) # 从2-9类中取
-            print('@line 289 classes to get:', classes)
-            c_pos += n
-
-            for class_idx in classes:
-                random.seed(1)
-                bias = random.randint(4, 14)
-                idx_st = self.idx[class_idx]
-                idx_end = self.idx[class_idx] + num_samples + bias
-                data_u.append(self.data_list[class_idx][idx_st:idx_end])
-                label_u.append(self.label_list[class_idx][idx_st:idx_end])
-                self.idx[class_idx] += num_samples + bias
-                sample_num += (num_samples + bias)
-            data_u = np.concatenate(data_u)
-            label_u = np.concatenate(label_u)
-            dataset[u] = {'X': data_u, 'y': label_u}
-        ls = []
-        for d_u in dataset.values():
-            # print('@line 182:',d_u)
-            ls += d_u['y'].tolist()
-        c = collections.Counter(ls)
-        print('line 449 sample num dist5:', sample_num)
-        print('@450 num of each class in solve_remained_data:', c)
-        return dataset
-
-    def get_final_dataset(self):
-        source_node=self.get_source_data()
-        taget_node=self.get_target_data()
-
-        source_node=shuffle_data(source_node)
-        taget_node=shuffle_data(taget_node)
-
-        d_fianl=source_node
-        d_fianl.update(taget_node)
-
-
-        d_remain=self.solve_remained_data()
-        d_remain=shuffle_data(d_remain)
-
-        return d_fianl,d_remain
-
-    def generate_train_test(self,dataset,train_test_ratio):
-        train_data = {'users': [], 'user_data': {}, 'num_samples': []}
-        test_data = {'users': [], 'user_data': {}, 'num_samples': []}
-        for i in range(self.num_users):
-            uname = 'f_{0:05d}'.format(i)
-            X = dataset[i]['X']
-            y = dataset[i]['y']
-            # train_len=int(self.train_test_ratio*X.shape[0])
-            train_len = int(train_test_ratio * X.shape[0])
-            test_len = X.shape[0] - train_len
-            X = X.tolist()
-            y = y.tolist()
-            train_data['users'].append(uname)
-            train_data['user_data'][uname] = {'x': X[:train_len], 'y': y[:train_len]}
-            train_data['num_samples'].append(train_len)
-            test_data['users'].append(uname)
-            test_data['user_data'][uname] = {'x': X[train_len:], 'y': y[train_len:]}
-            test_data['num_samples'].append(test_len)
-        print('num_samples of train data:',train_data['num_samples'])
-        print('num_samples of test data:',test_data['num_samples'])
-        print('sum num_samples of train data:',sum(train_data['num_samples']))
-        print('sum num_samples of test data:',sum(test_data['num_samples']))
-        return train_data,test_data
-
-    def save_data(self,pretrain=False):
-
-        if not pretrain:
-            train_path = os.path.join(self.savepath,
-                                          'data/train/all_data_train_u_{}_a{}_node_type{}.json'.format(self.num_users, self.a,
-                                                                                                       5))
-            test_path = os.path.join(self.savepath,
-                                         'data/test/all_data_test_u{}_a{}_node_type{}.json'.format(self.num_users, self.a,
-                                                                                                    5))
-            self.save(self.train_data,self.test_data,train_path,test_path)
-        if pretrain:
-            #solve the remain data
-            train_path_r = os.path.join(self.savepath,
-                                      'data/pretrain/remain_data_train_u_{}_a{}_node_type{}.json'.format(self.num_users, self.a,
-                                                                                                   5))
-            test_path_r = os.path.join(self.savepath,
-                                     'data/pretest/remain_data_test_u{}_a{}_node_type{}.json'.format(self.num_users, self.a,
-                                                                                                5))
-
-            self.save(self.train_data_remain, self.test_data_remain, train_path_r, test_path_r)
-
-
-    def save(self,train_data,test_data,train_path,test_path):
-        # train_path = os.path.join(self.savepath, 'data/train/all_data_0_niid_0_keep_10_train_9.json')
-        # test_path = os.path.join(self.savepath, 'data/test/all_data_0_niid_0_keep_10_test_9.json')
-        # 如果之前有数据需要先删除
-        os.system('rm -rf {}'.format(os.path.dirname(train_path)))
-        print('rm -rf {}'.format(os.path.dirname(train_path)))
-        os.system('rm -rf {}'.format(os.path.dirname(test_path)))
-        print('rm -rf {}'.format(os.path.dirname(test_path)))
-        dir_path = os.path.dirname(train_path)
-        if not os.path.exists(dir_path):
-            os.makedirs(dir_path)
-        dir_path = os.path.dirname(test_path)
-        if not os.path.exists(dir_path):
-            os.makedirs(dir_path)
-
-        with open(train_path, 'w') as outfile:
-            json.dump(train_data, outfile)
-        with open(test_path, 'w') as outfile:
-            json.dump(test_data, outfile)
-
-
 
 def genrate_cifar10(pretrain=False,user_num=50,a=10):
     data_list, label_list=prepare_cifar10()
     generator=DataDivider(data_list,label_list,num_users=user_num,a=a,division_ratio=[0.8,0.2],train_test_ratio=0.2,savepath='/root/TC174611125/fmaml/fmaml_mac/data/cifar10',num_class=10)
     generator.save_data(pretrain=pretrain)
 
+
 if __name__=='__main__':
-    # genrate_cifar10(pretrain=True,user_num=100,a=10)
+    genrate_cifar10(pretrain=True,user_num=100,a=10)
     genrate_cifar10(pretrain=False, user_num=50, a=10)

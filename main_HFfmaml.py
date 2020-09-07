@@ -62,8 +62,9 @@ def read_options():
     parser.add_argument('--adapt_num', default=1, help='adapt number', type=int)
     parser.add_argument('--isTrain', default=False, help='load trained wights', type=bool)
     parser.add_argument('--pretrain', default=False, help='Pretrain to get theta_c', type=bool)
-    parser.add_argument('--sourceN', default=False, help='source node class num used', type=int)
+    parser.add_argument('--sourceN', default=5, help='source node class num used', type=int)
     parser.add_argument('--R', default=0, help='the R th test', type=int)
+    parser.add_argument('--logdir', default='./log', help='the R th test', type=str)
 
 
     try: parsed = vars(parser.parse_args())
@@ -173,6 +174,8 @@ def prepare_dataset(options):
                 dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i])
             for i in range(len(dataset[3][user]['y'])):
                 dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i])
+
+    ######************************************** devide  source node and target node **********************************************#########################
     random.seed(1)
     random.shuffle(dataset[0])
     test_user=dataset[0][options['clients_per_round']:]
@@ -200,8 +203,11 @@ def main():
         os.makedirs(dir_path)
 
     #、 o00000007理论 call appropriate trainer
-    loss_save_path='./log/losses_OPT_{}_Dataset{}_round_{}_rho_{}_lambda{}_pretrain{}_SN{}.mat'.format(options['optimizer'],options['dataset'],options['num_rounds'],options['rho'],options['labmda'],options['pretrain'],options['sourceN'])
-    acc_save_path='./log/Accuracies_OPT_{}_Dataset{}_round_{}_rho_{}_lambda{}_pretrain{}_SN{}.mat'.format(options['optimizer'],options['dataset'],options['num_rounds'],options['rho'],options['labmda'],options['pretrain'],options['sourceN'])
+    loss_save_path='losses_OPT_{}_Dataset{}_round_{}_rho_{}_lambda{}_pretrain{}_SN{}_R{}.mat'.format(options['optimizer'],options['dataset'],options['num_rounds'],options['rho'],options['labmda'],options['pretrain'],options['sourceN'],options['R'])
+    acc_save_path='Accuracies_OPT_{}_Dataset{}_round_{}_rho_{}_lambda{}_pretrain{}_SN{}_R{}.mat'.format(options['optimizer'],options['dataset'],options['num_rounds'],options['rho'],options['labmda'],options['pretrain'],options['sourceN'],options['R'])
+    loss_save_path=os.path.join(options['logdir'],loss_save_path)
+    acc_save_path=os.path.join(options['logdir'],acc_save_path)
+
     if options['isTrain']==True:
         t = optimizer(options, learner, dataset,theta_c_path,test_user)
         loss_history,acc_history=t.train()
@@ -226,7 +232,11 @@ def main():
     print("loss_save_path:", loss_save_path)
     print("acc_save_path:", acc_save_path)
     # save_result('./results/ThetaC_results.csv',[[options['labmda'],np.sum(acc_test),acc_save_path]],col_name=['Lambda','Accuracy','acc_save_path'])
-    save_result('./results/contrast_{}_{}.csv'.format(options['dataset'],['optimizer']), [[options['labmda'], np.sum(acc_test), acc_save_path]],
+    result_path = os.path.join(options['logdir'],
+                               'contrast_{}_{}_{}_L{}.csv'.format(options['model'], options['dataset'],
+                                                                  options['optimizer'], options['num_epochs']))
+
+    save_result(result_path, [[options['labmda'], np.sum(acc_test), acc_save_path]],
                 col_name=['Lambda', 'Accuracy', 'acc_save_path'])
 
 

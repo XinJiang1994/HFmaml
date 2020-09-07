@@ -9,6 +9,9 @@ from flearn.utils.model_utils import read_data, read_data_xin
 from flearn.models.client import Client
 from tqdm import tqdm
 from scipy import io
+
+from utils.utils import save_result
+
 os.environ['TF_CPP_MIN_LOG_LEVEL']='3'
 
 # GLOBAL PARAMETERS
@@ -59,6 +62,8 @@ def read_options():
     parser.add_argument('--mu_i', default=0, help='mu_i for optimizer', type=int)
     parser.add_argument('--num_local_updates', default=1, help='mu_i for optimizer', type=int)
     parser.add_argument('--adapt_num', default=1, help='mu_i for optimizer', type=int)
+    parser.add_argument('--R', default=0, help='the R th test', type=int)
+    parser.add_argument('--logdir', default='./log', help='the R th test', type=str)
 
     try:
         parsed = vars(parser.parse_args())
@@ -179,9 +184,18 @@ def main():
     # 、 o00000007理论 call appropriate trainer
     t = optimizer(options, learner, dataset,test_user)
     loss_history,acc_history=t.train()
-    loss_save_path='losses_OPT_{}_Dataset{}_round_{}_L{}.mat'.format(options['optimizer'], options['dataset'], options['num_rounds'],options['num_epochs'])
-    acc_save_path = 'Accuracies_OPT_{}_Dataset{}_round_{}_L{}.mat'.format(options['optimizer'], options['dataset'],
-                                                                       options['num_rounds'], options['num_epochs'])
+    loss_save_path='losses_OPT_{}_Dataset{}_round_{}_L{}_R{}.mat'.format(options['optimizer'],
+                                                                     options['dataset'],
+                                                                     options['num_rounds'],
+                                                                     options['num_epochs'],
+                                                                     options['R'])
+    acc_save_path = 'Accuracies_OPT_{}_Dataset{}_round_{}_L{}_R{}.mat'.format(options['optimizer'],
+                                                                          options['dataset'],
+                                                                          options['num_rounds'],
+                                                                          options['num_epochs'],
+                                                                          options['R'])
+    loss_save_path=os.path.join(options['logdir'],loss_save_path)
+    acc_save_path=os.path.join(options['logdir'],acc_save_path)
 
     io.savemat(
         loss_save_path,
@@ -211,15 +225,11 @@ def main():
     print("Local average acc", np.sum(acc_test))
     print('loss_save_path',loss_save_path)
     print('acc_save_path', acc_save_path)
-    # for i,user in enumerate(test_user):
-    #     print(user)
-    #     test_data=dataset[3][user]
-    #     ys=[]
-    #     for y in (test_data['y']):
-    #         ys.append(np.argmax(y))
-    #     print(ys)
-    #     print(len(ys))
-    # print(preds)
+    result_path = os.path.join(options['logdir'],
+                               'contrast_{}_{}_{}_L{}.csv'.format(options['model'], options['dataset'],
+                                                                  options['optimizer'], options['num_epochs']))
+    save_result(result_path, [[np.sum(acc_test), acc_save_path,loss_save_path]],
+                col_name=['Accuracy', 'acc_save_path','loss_save_path'])
 
 
 def fmaml_test(trainer, learner, train_data, test_data, params, user_name, weight):

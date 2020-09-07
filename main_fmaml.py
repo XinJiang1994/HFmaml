@@ -9,6 +9,9 @@ from flearn.utils.model_utils import read_data
 from flearn.models.client_maml import Client
 from tqdm import trange, tqdm
 from scipy import io
+
+from utils.utils import savemat, save_result
+
 os.environ['TF_CPP_MIN_LOG_LEVEL']='3'
 
 # GLOBAL PARAMETERS
@@ -89,6 +92,9 @@ def read_options():
                     type=int,
                     default=0)
     parser.add_argument('--adapt_num', default=1, help='mu_i for optimizer', type=int)
+
+    parser.add_argument('--R', default=0, help='the R th test', type=int)
+    parser.add_argument('--logdir', default='./log', help='the R th test', type=str)
 
     try: parsed = vars(parser.parse_args())
     except IOError as msg: parser.error(str(msg))
@@ -205,13 +211,23 @@ def main():
     # call appropriate trainer
     t = optimizer(options, learner, dataset,test_user)
     loss_history,acc_history=t.train()
-    losssavepath='losses_OPT_{}_Dataset_{}_beta{}_round{}_L{}.mat'.format(options['optimizer'],options['dataset'],options['beta'],options['num_rounds'],options['num_epochs'])
-    acc_savepath = 'Accuracies_OPT_{}_Dataset_{}_beta{}_round{}_L{}.mat'.format(options['optimizer'], options['dataset'],
-                                                                            options['beta'], options['num_rounds'],
-                                                                            options['num_epochs'])
+    loss_save_path='losses_OPT_{}_Dataset_{}_beta{}_round{}_L{}_R{}.mat'.format(options['optimizer'],
+                                                                                options['dataset'],
+                                                                                options['beta'],
+                                                                                options['num_rounds'],
+                                                                                options['num_epochs'],
+                                                                                options['R'])
+    acc_save_path = 'Accuracies_OPT_{}_Dataset_{}_beta{}_round{}_L{}_R{}.mat'.format(options['optimizer'],
+                                                                                     options['dataset'],
+                                                                                     options['beta'],
+                                                                                     options['num_rounds'],
+                                                                                     options['num_epochs'],
+                                                                                     options['R'])
+    loss_save_path=os.path.join(options['logdir'],loss_save_path)
+    acc_save_path=os.path.join(options['logdir'],acc_save_path)
 
-    io.savemat(losssavepath, {'losses': loss_history})
-    io.savemat(acc_savepath, {'accuracies': acc_history})
+    savemat(loss_save_path, {'losses': loss_history})
+    savemat(acc_save_path, {'accuracies': acc_history})
 
     print('after training, start testing')
 
@@ -241,8 +257,12 @@ def main():
         acc_test = [a * n / np.sum(num_test) for a, n in zip(accs, num_test)]
         tqdm.write(' Final loss: {}'.format(np.sum(loss_test)))
         print("Local average acc", np.sum(acc_test))
-        print('loss save path: ',losssavepath)
-        print('acc save path: ',acc_savepath)
+        print('loss save path: ',loss_save_path)
+        print('acc save path: ',acc_save_path)
+        result_path=os.path.join(options['logdir'],'contrast_{}_{}_{}_L{}.csv'.format(options['model'],options['dataset'],options['optimizer'],options['num_epochs']))
+        save_result(result_path, [[np.sum(acc_test), acc_save_path,loss_save_path]],
+                    col_name=['Accuracy', 'acc_save_path','loss_save_path'])
+
 
 
 def fmaml_test(trainer, learner, train_data, test_data, params, user_name, num_local_updates, weight):
