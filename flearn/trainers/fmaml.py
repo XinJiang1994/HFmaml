@@ -27,15 +27,25 @@ class Server(BaseFedarated):
                 # stats = self.test()
                 for c in self.clients:
                     c.set_params(self.latest_model)
+
+                # print('++++++++++++++++++++++:', np.linalg.norm(self.clients[0].get_features_train()))
+                # print('\n::::::::::::::::::::phy:', np.sum([np.linalg.norm(x) for x in self.clients[0].get_features_train()]))
                 stats_train = self.train_error_and_loss()
                 # self.metrics.accuracies.append(stats)
                 self.metrics.train_accuracies.append(stats_train)
+
                 tot_sams = np.sum(stats_train[2])
+                # print('&&&&&&&&&&&&&&&&&&&&&&total sample num:',tot_sams)
+                #
+                # print('**********************nodes sample num',stats_train[2])
+                #
+                # print('######################origin losses:',stats_train[4])
+
                 losses=[ n / tot_sams * loss for n,loss in zip(stats_train[2],stats_train[4])]
                 accs = [n / tot_sams * acc for n, acc in zip(stats_train[2], stats_train[3])]
                 acc_target='XXX'
-                acc_target = target_test2(self.test_user, self.learner, self.datasets_data, self.params,
-                                          self.latest_model)
+                # acc_target = target_test2(self.test_user, self.learner, self.datasets_data, self.params,
+                #                           self.latest_model)
 
                 tqdm.write('At round {} training loss: {}; acc:{}, target acc:{}'.format(i,np.sum(losses),np.sum(accs),acc_target))
                 loss_history.append(np.sum(losses))
@@ -45,7 +55,8 @@ class Server(BaseFedarated):
                 #                                                       stats_train[2])))
 
             # choose M clients prop to data size, here need to choose all
-            selected_clients = self.select_clients(i, num_clients=self.clients_per_round)
+            # selected_clients = self.select_clients(i, num_clients=self.clients_per_round)
+            selected_clients=self.clients
 
             csolns = [] # buffer for receiving client solutions
             for c in selected_clients:

@@ -10,7 +10,6 @@ from utils.utils import savemat
 from flearn.models.client_HFmaml import Client
 from tqdm import  tqdm
 
-from scipy import io
 import pandas as pd
 
 os.environ['TF_CPP_MIN_LOG_LEVEL']='3'
@@ -134,6 +133,7 @@ def prepare_dataset(options):
         train_path = os.path.join('data', options['dataset'], 'data', 'train')
         test_path = os.path.join('data', options['dataset'], 'data', 'test')
         if options['pretrain']:
+            print('@@@@@@@@@@@@@@@@@using pretrained dataset')
             train_path = os.path.join('data', options['dataset'], 'data', 'pretrain')
             test_path = os.path.join('data', options['dataset'], 'data', 'pretest')
         dataset = read_data(train_path, test_path)
@@ -196,7 +196,6 @@ def main():
     test_user,dataset=prepare_dataset(options)
 
     # define theta_c save path
-    # theta_c_path='/root/TC174611125/fmaml/fmaml_mac/theta_c/{}_theata_c.mat'.format(options['dataset'])
     theta_c_path = '/root/TC174611125/fmaml/fmaml_mac/theta_c/{}_theata_c.mat'.format(options['dataset'])
     dir_path = os.path.dirname(theta_c_path)
     if not os.path.exists(dir_path):

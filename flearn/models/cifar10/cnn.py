@@ -1,11 +1,10 @@
 import tensorflow as tf
 from flearn.models.BaseModel import BaseModel
-
+# from flearn.utils.model_utils import active_func
 
 def active_func(x, leak=0.2, name="active_func"):
-    # return tf.maximum(x, leak * x)
-    return tf.nn.elu(x)
-
+    return tf.maximum(x, leak * x)
+    # return tf.nn.elu(x)
 
 def weight_variable(shape, name):
     # tf.set_random_seed(123)

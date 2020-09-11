@@ -31,7 +31,6 @@ MODEL_PARAMS = {
     'Fmnist.mclrFed': (10),
 'Fmnist.cnn_fedavg': (10,),
     'mnist.cnn': (10,),  # num_classes
-    'cifar10.cnn': (10,),
     'cifar10.cnn_fedavg': (10,),
     'cifar100.cnn_fedavg': (100,),
     'shakespeare.stacked_lstm': (80, 80, 256),  # seq_len, emb_dim, num_hidden

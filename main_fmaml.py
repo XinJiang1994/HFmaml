@@ -17,7 +17,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL']='3'
 # GLOBAL PARAMETERS
 OPTIMIZERS = ['fmaml', 'fedavg', 'fedprox', 'feddane', 'fedddane', 'fedsgd']
 DATASETS = ['sent140', 'nist', 'shakespeare', 'mnist',
-'synthetic_iid', 'synthetic_0_0', 'synthetic_0.5_0.5', 'synthetic_1_1','cifar10','Fmnist']  # NIST is EMNIST in the paepr
+'synthetic_iid', 'synthetic_0_0', 'synthetic_0.5_0.5', 'synthetic_1_1','cifar10','cifar100','Fmnist']  # NIST is EMNIST in the paepr
 
 
 MODEL_PARAMS = {
@@ -29,7 +29,7 @@ MODEL_PARAMS = {
     'Fmnist.mclr': (10),
     'Fmnist.cnn_fmaml': (10,),
     'mnist.cnn': (10,),  # num_classes
-    'cifar10.cnn': (10,),
+    'cifar100.cnn_fmaml': (100,),
     'cifar10.cnn_fmaml': (10,),
     'shakespeare.stacked_lstm': (80, 80, 256), # seq_len, emb_dim, num_hidden
     'synthetic_fed.mclr': (10), # num_classes changed, remove,
@@ -50,7 +50,7 @@ def read_options():
                     help='name of dataset;',
                     type=str,
                     choices=DATASETS,
-                    default='Fmnist')
+                    default='cifar100')
     parser.add_argument('--model',
                     help='name of model;',
                     type=str,
@@ -74,7 +74,7 @@ def read_options():
     parser.add_argument('--num_epochs', 
                     help='number of epochs when clients train on data;',
                     type=int,
-                    default=5) #20
+                    default=10) #20
     parser.add_argument('--alpha',
                     help='learning rate for inner solver;',
                     type=float,
@@ -82,7 +82,7 @@ def read_options():
     parser.add_argument('--beta',
                     help='meta rate for inner solver;',
                     type=float,
-                    default=0.1)
+                    default=0.01)
     parser.add_argument('--mu',
                     help='constant for prox;',
                     type=float,
@@ -108,8 +108,10 @@ def read_options():
     # load selected model
     if parsed['dataset'].startswith("synthetic"):  # all synthetic_fed datasets use the same model
         model_path = '%s.%s.%s.%s' % ('flearn', 'models', 'synthetic', parsed['model']) #changed
-    elif parsed['dataset'].startswith("cifar10"):
+    elif parsed['dataset']=="cifar10":
         model_path = '%s.%s.%s.%s' % ('flearn', 'models', 'cifar10', parsed['model'])
+    elif parsed['dataset']=="cifar100":
+        model_path = '%s.%s.%s.%s' % ('flearn', 'models', 'cifar100', parsed['model'])
     elif parsed['dataset'].startswith("Fmnist"):
         model_path = '%s.%s.%s.%s' % ('flearn', 'models', 'Fmnist', parsed['model'])
     else:
@@ -134,45 +136,47 @@ def read_options():
 
     return parsed, learner, optimizer
 
-def reshape_label(label):
-    new_label=[0]*10
-    new_label[int(label)]=1
+def reshape_label(label,n=10):
+    # print(label)
+    new_label = [0] * n
+    new_label[int(label)] = 1
     return new_label
+
+
+def reshape_features(x):
+    x = np.array(x)
+    x = np.transpose(x.reshape(3, 32, 32), [1, 2, 0])
+    # print(x.shape)
+    return x
 
 def reshapeFmnist(x):
     x=np.array(x)
     x=x.reshape(28,28,1)
     return x
 
-def reshape_features(x):
-    x=np.array(x)
-    x=np.transpose(x.reshape(3, 32, 32), [1, 2, 0])
-    # print(x.shape)
-    return x
 
-def main():
-    tf.reset_default_graph()
-    # suppress tf warnings
-    tf.logging.set_verbosity(tf.logging.WARN)
-    
-    # parse command line arguments
-    options, learner, optimizer = read_options()
-
+def prepare_dataset(options):
     # read data
-    if options['dataset']=='cifar10':
-        data_path = os.path.join('data', options['dataset'], 'data')
+    if options['dataset']=='cifar10' or options['dataset']=='cifar100':
+        # data_path = os.path.join('data', options['dataset'], 'data')
         # dataset = read_data_xin(data_path)  # return clients, groups, train_data, test_data
         train_path = os.path.join('data', options['dataset'], 'data', 'train')
         test_path = os.path.join('data', options['dataset'], 'data', 'test')
         dataset = read_data(train_path, test_path)
+        num_class = 10
+        if options['dataset'] == 'cifar100':
+            num_class = 100
 
         for user in dataset[0]:
             for i in range(len(dataset[2][user]['y'])):
                 dataset[2][user]['x'][i]=reshape_features(dataset[2][user]['x'][i])
-                dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i])
+                dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i],num_class)
+
+        # print('reshape labels in test dataset')
+        for user in dataset[0]:
             for i in range(len(dataset[3][user]['y'])):
                 dataset[3][user]['x'][i] = reshape_features(dataset[3][user]['x'][i])
-                dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i])
+                dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i],num_class)
     elif options['dataset']=='Fmnist':
         train_path = os.path.join('data', options['dataset'], 'data', 'train')
         test_path = os.path.join('data', options['dataset'], 'data', 'test')
@@ -194,18 +198,29 @@ def main():
         for user in dataset[0]:
             for i in range(len(dataset[2][user]['y'])):
                 dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i])
-
-        #print('reshape labels in test dataset')
-        for user in dataset[0]:
             for i in range(len(dataset[3][user]['y'])):
                 dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i])
 
-    num_users = len(dataset[0])
-    # print('num users: ',num_users)
+    ######************************************** devide  source node and target node **********************************************#########################
     random.seed(1)
     random.shuffle(dataset[0])
-    test_user = dataset[0][40:]
-    del dataset[0][40:]
+    test_user=dataset[0][options['clients_per_round']:]
+    print('@ main print test user:',test_user)
+
+    del dataset[0][options['clients_per_round']:]
+
+    return test_user, dataset
+
+def main():
+    tf.reset_default_graph()
+    # suppress tf warnings
+    tf.logging.set_verbosity(tf.logging.WARN)
+
+    # parse command line arguments
+    options, learner, optimizer = read_options()
+    print('$$$$$$$$$$$$$$$$$learner',learner)
+
+    test_user, dataset = prepare_dataset(options)
 
 
     # call appropriate trainer
@@ -233,12 +248,6 @@ def main():
 
     client_params = t.latest_model
     weight = client_params
-    # client_model = learner(options['model_params'], options['learning_rate'], options['meta_rate'],
-    #                        dataset[2][test_user], dataset[3][test_user])  # changed remove star
-    # client_model.set_params(client_params)
-    # test_client = Client(test_user, [], dataset[2][test_user], dataset[3][test_user], client_model)
-    # loss_zero = test_client.test_zeroth()
-    # tqdm.write('Zeroth loss {}:'.format(loss_zero))
 
     local_updates_bound = 2
     for num_local_updates in range(1, local_updates_bound):

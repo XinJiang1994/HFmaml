@@ -4,8 +4,8 @@ from flearn.models.FederateBaseModel import BaseModel
 from flearn.utils.model_utils import active_func
 
 
-def lrelu(x, leak=0.2, name="lrelu"):
-    return tf.maximum(x, leak * x)
+# def lrelu(x, leak=0.2, name="lrelu"):
+#     return tf.maximum(x, leak * x)
 
 
 def weight_variable(shape, name):

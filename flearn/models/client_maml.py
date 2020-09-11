@@ -24,6 +24,15 @@ class Client(object):
         '''get model parameters'''
         return self.model.get_params()
 
+    def get_phy(self):
+        return self.model.get_phy(self.train_data)
+
+    def get_logits_train(self):
+        return self.model.get_logits_train(self.train_data)
+
+    def get_features_train(self):
+        return self.model.get_features_train(self.train_data)
+
 
     def get_grads(self, model_len):
         '''get model gradient'''

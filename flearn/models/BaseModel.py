@@ -34,13 +34,13 @@ class BaseModel(object):
         with self.graph.as_default():
             w_names = [x.name.split(':', 1)[0] for x in self.weights]
             logits_train = self.forward_func(self.features_train, self.weights, w_names, reuse=True)
+            self.logits_train=logits_train
             # print('baseModel line 44 logits_train.shape', logits_train.shape)
             self.train_loss = self.loss_func(logits_train, self.labels_train)
 
             # print('@BaseModel line 48',self.weights)
 
             grad_w = tf.gradients(self.train_loss, self.weights)
-            # print('@BaseModel line 48 grad_w:',grad_w)
             self.fast_vars = [val - self.alpha * grad for grad, val in zip(grad_w, self.weights)]
             # phy=[tf.zeros_like(x) for x in self.weights]
 
@@ -134,12 +134,13 @@ class BaseModel(object):
         losses = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=label)
         return tf.reduce_mean(losses)
 
+
     def solve_inner(self, train_data, test_data, num_epochs):
         self.k += 1
         # for cifar10 delta=1/(k+100)
         #for Fmnist delta=1/(k*10)s
         self.delta.load(1.0 / (self.k+100), self.sess)
-        # self.delta.load(1.0 / (self.k*10), self.sess)
+        # self.delta.load(1.0 / (self.k*10+100), self.sess)
 
         X_train = train_data['x']
         y_train = train_data['y']
@@ -186,6 +187,21 @@ class BaseModel(object):
         with self.graph.as_default():
             model_params = self.sess.run(tf.trainable_variables())
         return model_params
+
+    def get_logits_train(self,train_data):
+        with self.graph.as_default():
+            logits = self.sess.run(self.logits_train,feed_dict={self.features_train: train_data['x'], self.labels_train: train_data['y']})
+        return logits
+
+    def get_features_train(self,train_data):
+        with self.graph.as_default():
+            features_train = self.sess.run(self.features_train,feed_dict={self.features_train: train_data['x'], self.labels_train: train_data['y']})
+        return features_train
+
+    def get_phy(self,train_data):
+        with self.graph.as_default():
+            phy_val = self.sess.run(self.fast_vars,feed_dict={self.features_train: train_data['x'], self.labels_train: train_data['y']})
+        return phy_val
 
     def get_yyk(self):
         with self.graph.as_default():
@@ -255,3 +271,4 @@ class BaseModel(object):
                             feed_dict={self.features_train: train_data['x'], self.labels_train: train_data['y'],
                                        self.features_test: test_data['x'], self.labels_test: test_data['y']})
         return target_test_acc
+

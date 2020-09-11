@@ -34,6 +34,7 @@ class BaseModel(object):
         with self.graph.as_default():
             w_names = [x.name.split(':', 1)[0] for x in self.weights]
             logits_train = self.forward_func(self.features_train, self.weights, w_names, reuse=True)
+            self.logits_train=logits_train
             loss_train = self.loss_func(logits_train, self.labels_train)
             grad_w = tf.gradients(loss_train, self.weights)
             phy = [val - self.alpha * grad for grad, val in zip(grad_w, self.weights)]
@@ -125,6 +126,22 @@ class BaseModel(object):
         with self.graph.as_default():
             model_params = self.sess.run(tf.trainable_variables())
         return model_params
+
+    def get_phy(self,train_data):
+        with self.graph.as_default():
+            phy_val = self.sess.run(self.fast_vars,feed_dict={self.features_train: train_data['x'], self.labels_train: train_data['y']})
+        return phy_val
+
+    def get_logits_train(self,train_data):
+        with self.graph.as_default():
+            logits = self.sess.run(self.logits_train,feed_dict={self.features_train: train_data['x'], self.labels_train: train_data['y']})
+        return logits
+
+    def get_features_train(self,train_data):
+        with self.graph.as_default():
+            features_train = self.sess.run(self.features_train,feed_dict={self.features_train: train_data['x'], self.labels_train: train_data['y']})
+        return features_train
+
 
     def test(self, train_data, test_data):
         '''

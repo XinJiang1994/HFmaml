@@ -478,7 +478,7 @@ class DataDivider():
 
             for class_idx in classes:
                 random.seed(u)
-                bias = random.randint(4, 14)
+                bias = random.randint(0, 10)
                 idx_st = self.idx[class_idx]
                 idx_end = self.idx[class_idx] + self.a + bias
                 data_u.append(self.data_list[class_idx][idx_st:idx_end])
@@ -684,8 +684,8 @@ def genrate_cifar10(pretrain=False,user_num=50,a=10):
 def genrate_cifar100(user_num):
     print('Generating Cifar100......')
     data_list, label_list=prepare_cifar100()
-    generator=DataDivider(data_list,label_list,num_users=user_num,a=10,division_ratio=[0, 0, 0, 0,0, 1],train_test_ratio=0.2,savepath='/root/TC174611125/fmaml/fmaml_mac/data/cifar100',num_class=100)
-    # generator.save_data()
+    generator=DataDivider(data_list,label_list,num_users=user_num,a=10,division_ratio=[0, 0, 0, 0,0, 1],train_test_ratio=0.5,savepath='/root/TC174611125/fmaml/fmaml_mac/data/cifar100',num_class=100)
+    generator.save_data()
 
 def generate_mnist(user_num):
     # data_list, label_list=prepare_cifar10()
@@ -710,11 +710,7 @@ def generate_dataset(dname,onlyPretrain_data,user_num,a):
         genrate_cifar100(user_num)
 
 if __name__=='__main__':
-    # gen_test()
-    #genrate_cifar10(pretrain=True,user_num=100,a=10)
-    genrate_cifar10(pretrain=False, user_num=50, a=10)
-
+    # genrate_cifar10(pretrain=False, user_num=50, a=10)
     # generate_Fmnist(50)
-    # data_list, label_list = prepare_cifar100()
-    # for l in label_list:
-    #     print(len(l))
+    genrate_cifar100(100)
+

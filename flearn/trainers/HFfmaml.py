@@ -31,8 +31,12 @@ class Server(BaseFedarated):
                 # evalute source node
                 for c in self.clients:
                     c.set_params(self.latest_model)
+
+                # print('::::::::::::::::::::phy:',np.sum([np.linalg.norm(x) for x in self.clients[0].get_features_train()]))
                 stats_train = self.train_error_and_loss()
                 tot_sams=np.sum(stats_train[2])
+
+
                 losses=[ n / tot_sams * loss for n,loss in zip(stats_train[2],stats_train[4])]
                 accs = [n / tot_sams * acc for n, acc in zip(stats_train[2], stats_train[3])]
                 accs_train = [n / tot_sams * acc for n, acc in zip(stats_train[2], stats_train[5])]

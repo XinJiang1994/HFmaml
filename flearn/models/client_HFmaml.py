@@ -26,6 +26,15 @@ class Client(object):
         ### get theta from clients####
         return self.model.get_params()
 
+    def get_phy(self):
+        return self.model.get_phy(self.train_data)
+
+    def get_logits_train(self):
+        return self.model.get_logits_train(self.train_data)
+
+    def get_features_train(self):
+        return self.model.get_features_train(self.train_data)
+
     def set_yyk(self, yyk):
         '''set model parameters '''
         ### model_params is from the platform which is theta_k+1 in the paper.
@@ -72,7 +81,7 @@ class Client(object):
     # training error is testing error, do not need to test again
     def train_error_and_loss(self):
         train_acc,test_acc, loss = self.model.test(self.train_data, self.eval_data)
-        return train_acc, test_acc, loss, self.num_test
+        return train_acc, test_acc, loss, self.num_samples
 
 
     def test(self):

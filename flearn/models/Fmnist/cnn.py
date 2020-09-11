@@ -1,10 +1,6 @@
 import tensorflow as tf
 from flearn.models.BaseModel import BaseModel
-
-
-def active_func(x, leak=0.2, name="active_func"):
-    # return tf.maximum(x, leak * x)
-    return tf.nn.elu(x)
+from flearn.utils.model_utils import active_func
 
 
 def weight_variable(shape, name):

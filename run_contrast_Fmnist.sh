@@ -2,18 +2,18 @@
 for i in {8..8}
 do
 
-#python3 main_HFfmaml.py \
-#        --eval_every=3 \
-#        --isTrain=True \
-#        --dataset=Fmnist \
-#        --model=cnn \
-#        --clients_per_round=40 \
-#        --num_rounds=100 \
-#        --rho=0.35 \
-#        --labmda=0 \
-#        --sourceN=10 \
-#        --R=$i \
-#        --logdir=contrast_results
+python3 main_HFfmaml.py \
+        --eval_every=3 \
+        --isTrain=True \
+        --dataset=Fmnist \
+        --model=cnn \
+        --clients_per_round=40 \
+        --num_rounds=100 \
+        --rho=0.35 \
+        --labmda=0 \
+        --sourceN=10 \
+        --R=$i \
+        --logdir=contrast_results
 
 python3 main_fmaml.py --eval_every=3 \
         --dataset=Fmnist \
