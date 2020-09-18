@@ -1,5 +1,7 @@
 
-for i in {8..8}
+python3 data/DataDivision.py --dataset='Fmnist'
+
+for i in {1..10}
 do
 
 python3 main_HFfmaml.py \

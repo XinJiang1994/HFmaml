@@ -11,6 +11,7 @@ import struct
 
 random.seed(13)
 np.random.seed(14)
+import argparse
 
 class DataDivider():
     def __init__(self,data_list,label_list,num_users=100,a=100,division_ratio=[1/3,1/3,1/3],train_test_ratio=0.8,savepath = './cifar10/',num_class=10):

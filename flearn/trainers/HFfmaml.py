@@ -32,7 +32,6 @@ class Server(BaseFedarated):
                 for c in self.clients:
                     c.set_params(self.latest_model)
 
-                # print('::::::::::::::::::::phy:',np.sum([np.linalg.norm(x) for x in self.clients[0].get_features_train()]))
                 stats_train = self.train_error_and_loss()
                 tot_sams=np.sum(stats_train[2])
 
@@ -43,7 +42,7 @@ class Server(BaseFedarated):
 
                 # evalute target node
                 acc_target='None'
-                acc_target=target_test2(self.test_user,self.learner,self.datasets_data,self.params,self.latest_model)
+                # acc_target=target_test2(self.test_user,self.learner,self.datasets_data,self.params,self.latest_model)
 
                 # print evalution results
                 tqdm.write('At round {} training loss: {}; acc_train:{}; acc_test:{}, target acc:{}'.format(i,np.sum(losses),np.sum(accs_train),np.sum(accs),acc_target))

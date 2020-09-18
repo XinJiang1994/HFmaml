@@ -108,6 +108,12 @@ class Model(BaseModel):
         W_fc1 = weight_variable([2048,10], name='W_fc1')
         b_fc1 = bias_variable([10], name='b_fc1')
 
+        # W_fc2 = weight_variable([2048, 10], name='W_fc2')
+        # b_fc2 = bias_variable([10], name='b_fc2')
+        #
+        # W_fc3 = weight_variable([2048, 10], name='W_fc3')
+        # b_fc3 = bias_variable([10], name='b_fc3')
+
         # weights=[W_conv1,b_conv1,W_conv2,b_conv2,W_conv3,b_conv3,W_conv4,b_conv4,W_fc1,b_fc1]
         weights = [W_conv1, b_conv1, W_conv2, b_conv2,W_conv3,b_conv3, W_fc1, b_fc1]
         return weights

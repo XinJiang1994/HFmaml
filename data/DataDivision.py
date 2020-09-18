@@ -7,6 +7,7 @@ import os
 import random
 import collections
 import struct
+import argparse
 
 # random.seed(13)
 # np.random.seed(14)
@@ -710,7 +711,23 @@ def generate_dataset(dname,onlyPretrain_data,user_num,a):
         genrate_cifar100(user_num)
 
 if __name__=='__main__':
-    # genrate_cifar10(pretrain=False, user_num=50, a=10)
-    # generate_Fmnist(50)
-    genrate_cifar100(100)
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--dataset', default='cifar100', help='name of dataset;', type=str)
+
+    try:
+        parsed = vars(parser.parse_args())
+    except IOError as msg:
+        parser.error(str(msg))
+
+    if parsed['dataset']=='cifar10':
+        print('Preparing cifar10')
+        genrate_cifar10(pretrain=False, user_num=50, a=10)
+    elif parsed['dataset']=='cifar100':
+        print('Preparing cifar100')
+        genrate_cifar100(100)
+    else:
+        print('Preparing Fmnist')
+        generate_Fmnist(50)
+
 
