@@ -262,7 +262,8 @@ def fmaml_test(learner, train_data, test_data, params, user_name, weight):
     test_client = Client(user_name, [], train_data, test_data, client_model)
     test_client.set_params(weight)
 
-    _ = test_client.fast_adapt(params['adapt_num'])
+    weights = test_client.fast_adapt(params['adapt_num'])
+    test_client.set_params(weights)
 
     acc, test_loss, test_num,preds = test_client.test_test()
 

@@ -13,6 +13,7 @@ class BaseFedarated(object):
         params['w_i']=1
         self.learner=learner
         self.client_model =learner(params)
+        self.w_names,self.meta_w_names=self.client_model.get_w_names()
         self.latest_model = self.client_model.get_params()
 
         self.clients = self.setup_clients(dataset,params)

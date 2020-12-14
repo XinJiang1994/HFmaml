@@ -87,13 +87,23 @@ class Server(BaseFedarated):
         self.theta_c=theta_c
 
     def aggregate(self, solns,yy_ks):
+        w_names=self.w_names
+        meta_w_names=self.meta_w_names
+        transfer_w_names=[name for name in w_names if name not in meta_w_names]
 
-        l_th_c = [2*self.labmda*t for t in self.theta_c]
+        theta_c_dict=dict(zip(w_names,self.theta_c))
+        theta_c_transfer_w = [theta_c_dict[name] for name in transfer_w_names]
+        # print(len(self.theta_c))
+        # print(theta_c_dict.keys())
+        theta_c_meta=[theta_c_dict[name] for name in meta_w_names]
+
+        l_th_c = [2*self.labmda*t for t in theta_c_meta]
 
         # solns is n个node的param list
 
         n=len(solns) # totally n nodes
         m=len(solns[0]) #param list的length
+
         # all rhos are the same, so we can just use self.rho
         sum_rho = self.rho * n
         sum_yy_theta=[]
@@ -104,7 +114,7 @@ class Server(BaseFedarated):
                 tmp_v += (yy_ks[i][j]+self.rho * solns[i][j])
             sum_yy_theta.append(tmp_v)
         theta_kp1=[(ltc+syt)/(2*self.labmda + sum_rho) for ltc,syt in zip(l_th_c,sum_yy_theta)]
-        return theta_kp1
+        return theta_c_transfer_w+theta_kp1
 
 
 def target_test2(test_user,learner,dataset,options,weight):

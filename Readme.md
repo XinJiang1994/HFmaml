@@ -1,3 +1,7 @@
+This is the Version for MobiHoc.
+We modify the architecture of the system, introduce transfer learning in the methods.
+We only use meta learning algorithm to update the last several layers of CNN, and remain the first several layers unchanged.
+
 
 For some coding reasons, the HFmaml actually means the  method we proposed which is called ADMM-FedMeta algorithm.
 

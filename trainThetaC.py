@@ -1,6 +1,14 @@
+import os
+
 import tensorflow as tf
-from flearn.models.BaseModel import BaseModel
+import tqdm
+from tqdm import tqdm
+
 # from flearn.utils.model_utils import active_func
+from flearn.utils.model_utils import save_weights
+from main_HFfmaml import reshape_features, reshape_label
+from utils.model_utils import batch_data, read_data
+
 
 def active_func(x, leak=0.2, name="active_func"):
     return tf.maximum(x, leak * x)
@@ -20,13 +28,11 @@ def bias_variable(shape, name):
 def conv2d(x, W, stride, padding='SAME'):
     return tf.nn.conv2d(x, W, strides=stride, padding=padding)
 
-class Model(BaseModel):
+class Model():
     def __init__(self,params={}):
-        self.num_classes=params['num_classes']
         self.channels=1
         self.stride=[1,1,1,1]
         self.training=True
-        super(Model, self).__init__(params)
 
     def get_input(self):
         '''
@@ -34,9 +40,7 @@ class Model(BaseModel):
         '''
         features_train = tf.placeholder(tf.float32, shape=[None, 32,32,3], name='features_train')
         labels_train = tf.placeholder(tf.float32, shape=[None, 10], name='labels_train')
-        features_test = tf.placeholder(tf.float32, shape=[None, 32,32,3], name='features_test')
-        labels_test = tf.placeholder(tf.float32, shape=[None,10], name='labels_test')
-        return features_train,labels_train,features_test,labels_test
+        return features_train,labels_train
 
     def forward_func(self,inp, weights, w_names , reuse = False):
 
@@ -87,9 +91,6 @@ class Model(BaseModel):
 
         logits=tf.matmul(fc2, weights['W_fc3'])
         logits=tf.nn.bias_add(logits,weights['b_fc3'])
-
-        #print(logits.shape)
-
         return logits
 
 
@@ -126,3 +127,78 @@ class Model(BaseModel):
 
     def setTraining(self,isTraining):
         self.training=isTraining
+
+    def train(self,train_data,test_data,bathsize,epoch=100):
+        sess = tf.Session()
+        features, labels=self.get_input()
+        weights=self.construct_weights()
+        w_names = [x.name.split(':', 1)[0] for x in weights]
+        logits=self.forward_func(features,weights,w_names)
+        pred=tf.argmax(logits,axis=1)
+        acc=tf.reduce_mean(
+            tf.cast(tf.equal(tf.cast(tf.argmax(input=labels, axis=1), dtype=tf.float32),
+                             tf.cast(pred, dtype=tf.float32)), dtype=tf.float32))
+        loss=tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=labels)
+        loss=tf.reduce_mean(loss)
+        optimizer=tf.train.AdamOptimizer()
+        g_and_v=optimizer.compute_gradients(loss)
+        optimize_op = optimizer.apply_gradients(g_and_v, global_step=tf.train.get_global_step())
+        sess.run(tf.global_variables_initializer())
+
+        for i in tqdm(range(epoch)):
+            for train_X, train_y in batch_data(train_data, bathsize):
+                _,loss_val=sess.run([optimize_op,loss],feed_dict={features: train_X, labels: train_y})
+            tqdm.write('round:{} loss:{}'.format(i,loss_val))
+        test_batchsize=len(test_data['y'])
+
+        print('train data num:',len(train_data['y']))
+        print('test data num:',test_batchsize)
+        for test_X,test_y in batch_data(test_data, test_batchsize):
+            print(sess.run(acc,feed_dict={features: test_X, labels: test_y}))
+        theta_c_path = '/root/TC174611125/fmaml/fmaml_mac/theta_c/{}_theata_c.mat'.format('cifar10')
+        weights_val= sess.run(weights)
+        save_weights(weights_val, w_names, theta_c_path)
+
+def main():
+    train_path = os.path.join('data', 'cifar10', 'data', 'pretrain')
+    test_path = os.path.join('data', 'cifar10', 'data', 'pretest')
+    dataset = read_data(train_path, test_path)
+    num_class=10
+    for user in dataset[0]:
+        for i in range(len(dataset[2][user]['y'])):
+            dataset[2][user]['x'][i] = reshape_features(dataset[2][user]['x'][i])
+            dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i], num_class)
+    for user in dataset[0]:
+        for i in range(len(dataset[3][user]['y'])):
+            dataset[3][user]['x'][i] = reshape_features(dataset[3][user]['x'][i])
+            dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i], num_class)
+
+    data_train_merge={'x':[],'y':[]}
+    data_test_merge = {'x':[],'y':[]}
+    for user in dataset[0]:
+        data_train_merge['x']+=dataset[2][user]['x']
+        data_train_merge['y']+=dataset[2][user]['y']
+        data_test_merge['x']+=dataset[3][user]['x']
+        data_test_merge['y']+=dataset[3][user]['y']
+    # mv 8000 samples from testset to trainset
+    testX1=data_test_merge['x'][:8000]
+    testY1=data_test_merge['y'][:8000]
+    testX2=data_test_merge['x'][8000:]
+    testY2 = data_test_merge['y'][8000:]
+    data_train_merge['x']+=testX1
+    data_train_merge['y'] += testY1
+    data_test_merge['x']=testX2
+    data_test_merge['y'] = testY2
+    model=Model()
+    model.train(train_data=data_train_merge,test_data=data_test_merge,bathsize=20,epoch=50)
+
+
+if __name__=='__main__':
+    main()
+
+
+
+
+
+
+

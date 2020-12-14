@@ -1,0 +1,2 @@
+对cifar10的model修改成了固定前2层为thetaC的前两层参数，后面的层进行行。
+修改位置包括BaseModel，fedbase_HFmaml,HFfmaml。涉及到y_i的部分都做了对应的修改

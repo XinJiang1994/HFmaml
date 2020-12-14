@@ -8,7 +8,7 @@ models_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 models_dir = os.path.join(models_dir, 'models')
 sys.path.append(models_dir)
 
-from client import Client
+# from client import Client
 
 def batch_data(data, batch_size):
     '''
@@ -17,12 +17,11 @@ def batch_data(data, batch_size):
     '''
     raw_x = data['x']
     raw_y = data['y']        
-    batched_x = []
-    batched_y = []
     for i in range(0, len(raw_x), batch_size):
-        batched_x.append(raw_x[i:i+batch_size])
-        batched_y.append(raw_y[i:i+batch_size])
-    return batched_x, batched_y
+        batched_x=raw_x[i:i+batch_size]
+        batched_y=raw_y[i:i+batch_size]
+        yield batched_x, batched_y
+
 
 def read_data(train_data_dir, test_data_dir):
     '''parses data in given train and test data directories

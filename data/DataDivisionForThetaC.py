@@ -1,4 +1,4 @@
-from sklearn.datasets import fetch_mldata
+from sklearn.datasets import fetch_openml
 from tqdm import tqdm
 import numpy as np
 import random
@@ -353,7 +353,7 @@ def norm(data):
 
 def prepare_mnist_data():
     # Get MNIST data, normalize, and divide by level
-    mnist = fetch_mldata('MNIST original', data_home='./mnist/data')
+    mnist = fetch_openml("mnist_784",data_home='./mnist/data')
     print(mnist.data.shape)
     mu = np.mean(mnist.data.astype(np.float32), 0)
     sigma = np.std(mnist.data.astype(np.float32), 0)

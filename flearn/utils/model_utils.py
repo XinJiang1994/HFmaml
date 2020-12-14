@@ -1,5 +1,4 @@
 import json
-import numpy as np
 import os
 from scipy import io
 import numpy as np
