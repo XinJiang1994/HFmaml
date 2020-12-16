@@ -1,4 +1,13 @@
 
+This is the version for MobiHoc.
+
+CIFAR-10: 用前五类的data先训练一个theta_0，保存最后的accuracy。然后做下面的事情：
+1.	用后五类的data，把这个theta_0当作训练的初始值，分别用友军和敌军训练得到\theta_yj和\theta_dj，并保存最后的accuracy。
+2.	同样地，用后五类的data，把这个theta_0当作训练的初始值，并令theta_c=theta_0，设置适当的lambda（可能需要多次尝试）用我们的算法训练得到\theta_us，并保存accuracy。
+做完以上两步之后，我们用得到的theta_jy、theta_dj、theta_us分别在前五类的data上做一次adaptation，然后保存accuracy。
+
+
+
 For some coding reasons, the HFmaml actually means the  method we proposed which is called ADMM-FedMeta algorithm.
 
 Step 1:

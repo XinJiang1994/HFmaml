@@ -5,6 +5,8 @@ import os
 from flearn.models.client_maml import Client
 
 from .fedbase_maml import BaseFedarated
+from ..utils.model_utils import load_weights
+
 
 class Server(BaseFedarated):
     def __init__(self, params, learner, dataset,test_user):
@@ -12,6 +14,7 @@ class Server(BaseFedarated):
         self.test_user=test_user
         # self.learner=learner
         self.params=params
+        self.transfer = params['transfer']
         self.datasets_data=dataset #注意这里的dataset_data是真的dataset，还有一个self.dataset实际是dataset name
         _, _, self.train_data, self.test_data = dataset
         #self.inner_opt = zip(self.inner_opt1, self.inner_opt2)
@@ -21,6 +24,9 @@ class Server(BaseFedarated):
         '''Train using Federated MAML'''
         loss_history=[]
         acc_history=[]
+        if self.transfer:
+            for c in self.clients:
+                c.set_params(load_weights(self.theta_c_path))
         for i in trange(self.num_rounds, desc='Round: ', ncols=120):
             # test model
             if i % self.eval_every == 0:
@@ -44,8 +50,8 @@ class Server(BaseFedarated):
                 losses=[ n / tot_sams * loss for n,loss in zip(stats_train[2],stats_train[4])]
                 accs = [n / tot_sams * acc for n, acc in zip(stats_train[2], stats_train[3])]
                 acc_target='XXX'
-                acc_target = target_test2(self.test_user, self.learner, self.datasets_data, self.params,
-                                          self.latest_model)
+                # acc_target = target_test2(self.test_user, self.learner, self.datasets_data, self.params,
+                #                           self.latest_model)
 
                 tqdm.write('At round {} training loss: {}; acc:{}, target acc:{}'.format(i,np.sum(losses),np.sum(accs),acc_target))
                 loss_history.append(np.sum(losses))

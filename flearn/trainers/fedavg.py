@@ -3,12 +3,15 @@ from tqdm import trange, tqdm
 
 from .fedbase import BaseFedarated
 from flearn.models.client import Client
+from ..utils.model_utils import load_weights
+
 
 class Server(BaseFedarated):
     def __init__(self, params, learner, dataset,test_user):
         print('Using Federated Average to Train')
         #self.inner_opt = tf.train.GradientDescentOptimizer(params['learning_rate'])
         self.opt1 = params['alpha']
+        self.transfer = params['transfer']
         self.test_user = test_user
         # self.learner=learner #super class has already set self.learner
         self.params = params
@@ -20,6 +23,9 @@ class Server(BaseFedarated):
         print('Training with {} workers ---'.format(self.clients_per_round))
         loss_history=[]
         acc_history = []
+        if self.transfer:
+            for c in self.clients:
+                c.set_params(load_weights(self.theta_c_path))
         for i in trange(self.num_rounds, desc='Round: ', ncols=120):
             # test model
             if i % self.eval_every == 0:

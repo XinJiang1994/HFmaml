@@ -10,6 +10,7 @@ from flearn.models.client_maml import Client
 from tqdm import trange, tqdm
 from scipy import io
 
+from main_HFfmaml import prepare_dataset, target_test
 from utils.utils import savemat, save_result
 
 os.environ['TF_CPP_MIN_LOG_LEVEL']='3'
@@ -95,6 +96,9 @@ def read_options():
 
     parser.add_argument('--R', default=0, help='the R th test', type=int)
     parser.add_argument('--logdir', default='./log', help='the R th test', type=str)
+    parser.add_argument('--pretrain', default=False, help='Pretrain to get theta_c', type=bool)
+    parser.add_argument('--transfer', default=False, help='Pretrain to get theta_c', type=bool)
+
 
     try: parsed = vars(parser.parse_args())
     except IOError as msg: parser.error(str(msg))
@@ -155,62 +159,6 @@ def reshapeFmnist(x):
     return x
 
 
-def prepare_dataset(options):
-    # read data
-    if options['dataset']=='cifar10' or options['dataset']=='cifar100':
-        # data_path = os.path.join('data', options['dataset'], 'data')
-        # dataset = read_data_xin(data_path)  # return clients, groups, train_data, test_data
-        train_path = os.path.join('data', options['dataset'], 'data', 'train')
-        test_path = os.path.join('data', options['dataset'], 'data', 'test')
-        dataset = read_data(train_path, test_path)
-        num_class = 10
-        if options['dataset'] == 'cifar100':
-            num_class = 100
-
-        for user in dataset[0]:
-            for i in range(len(dataset[2][user]['y'])):
-                dataset[2][user]['x'][i]=reshape_features(dataset[2][user]['x'][i])
-                dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i],num_class)
-
-        # print('reshape labels in test dataset')
-        for user in dataset[0]:
-            for i in range(len(dataset[3][user]['y'])):
-                dataset[3][user]['x'][i] = reshape_features(dataset[3][user]['x'][i])
-                dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i],num_class)
-    elif options['dataset']=='Fmnist':
-        train_path = os.path.join('data', options['dataset'], 'data', 'train')
-        test_path = os.path.join('data', options['dataset'], 'data', 'test')
-        dataset = read_data(train_path, test_path) # return clients, groups, train_data, test_data
-        for user in dataset[0]:
-            for i in range(len(dataset[2][user]['y'])):
-                dataset[2][user]['x'][i] = reshapeFmnist(dataset[2][user]['x'][i])
-                dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i])
-            for i in range(len(dataset[3][user]['y'])):
-                dataset[3][user]['x'][i] = reshapeFmnist(dataset[3][user]['x'][i])
-                dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i])
-    else:
-        train_path = os.path.join('data', options['dataset'], 'data', 'train')
-        test_path = os.path.join('data', options['dataset'], 'data', 'test')
-        dataset = read_data(train_path, test_path) # return clients, groups, train_data, test_data
-        #print(dataset[3]['f_00000']['y'])
-        #print('@main_HFfaml.py line 152####',dataset)
-
-        for user in dataset[0]:
-            for i in range(len(dataset[2][user]['y'])):
-                dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i])
-            for i in range(len(dataset[3][user]['y'])):
-                dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i])
-
-    ######************************************** devide  source node and target node **********************************************#########################
-    random.seed(1)
-    random.shuffle(dataset[0])
-    test_user=dataset[0][options['clients_per_round']:]
-    print('@ main print test user:',test_user)
-
-    del dataset[0][options['clients_per_round']:]
-
-    return test_user, dataset
-
 def main():
     tf.reset_default_graph()
     # suppress tf warnings
@@ -248,55 +196,16 @@ def main():
 
     client_params = t.latest_model
     weight = client_params
-
-    local_updates_bound = 2
-    for num_local_updates in range(1, local_updates_bound):
-        i=0
-        loss_test=dict()
-        accs = dict()
-        num_test = dict()
-        for user in test_user:
-            accs[i],loss_test[i],num_test[i]=fmaml_test(trainer=t, learner=learner, train_data=dataset[2][user], test_data=dataset[3][user],
-                   params=options, user_name=user, num_local_updates=num_local_updates, weight= weight)
-            i=i+1
-        loss_test = list(loss_test.values())
-        accs = list(accs.values())
-        num_test = list(num_test.values())
-        loss_test = [l * n / np.sum(num_test) for l, n in zip(loss_test, num_test)]
-        acc_test = [a * n / np.sum(num_test) for a, n in zip(accs, num_test)]
-        tqdm.write(' Final loss: {}'.format(np.sum(loss_test)))
-        print("Local average acc", np.sum(acc_test))
-        print('loss save path: ',loss_save_path)
-        print('acc save path: ',acc_save_path)
-        result_path=os.path.join(options['logdir'],'contrast_{}_{}_{}_L{}.csv'.format(options['model'],options['dataset'],options['optimizer'],options['num_epochs']))
-        save_result(result_path, [[np.sum(acc_test), acc_save_path,loss_save_path]],
-                    col_name=['Accuracy', 'acc_save_path','loss_save_path'])
-
-
-
-def fmaml_test(trainer, learner, train_data, test_data, params, user_name, num_local_updates, weight):
-    print('fmaml test')
-
-    #client_params = trainer.latest_model
-    client_model = learner(params)  # changed remove star
-    #client_model.set_params(weight)
-
-    #test_client = Client(user_name, [], train_data, test_data, client_model)
-    #trainer.client_model.set_params(weight)
-    # client_params = trainer.latest_model
-
-    test_client = Client(user_name, [], train_data, test_data, client_model)
-    test_client.set_params(weight)
-
-    # tot_correct, loss, test_loss, ns = test_client.final_test()
-    # client_params = trainer.latest_model
-    soln = test_client.fast_adapt(params['adapt_num'])
-
-    test_client.set_params(soln)
-
-    acc, test_loss, test_num = test_client.test_test()
-
-    return acc,test_loss,test_num
+    loss_test, acc_test = target_test(test_user,learner,dataset,options,weight)
+    loss_test_forget, acc_test_forget = target_test(test_user, learner, dataset, options, weight,situation='forget_test')
+    tqdm.write(' Final loss: {}'.format(np.sum(loss_test)))
+    print("Local average acc", np.sum(acc_test))
+    print("Forget_test average acc", np.sum(acc_test_forget))
+    print("loss_save_path:", loss_save_path)
+    print("acc_save_path:", acc_save_path)
+    result_path=os.path.join(options['logdir'],'contrast_{}_{}_{}_L{}.csv'.format(options['model'],options['dataset'],options['optimizer'],options['num_epochs']))
+    save_result(result_path, [[np.sum(acc_test),np.sum(acc_test_forget), acc_save_path,loss_save_path]],
+                    col_name=['Accuracy','Forget_acc' ,'acc_save_path','loss_save_path'])
     
 if __name__ == '__main__':
     main()

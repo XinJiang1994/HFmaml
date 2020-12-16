@@ -10,6 +10,7 @@ class Server(BaseFedarated):
         print('Using HFmaml to Train')
         self.theta_c_path=theta_c_path
         self.lamda=params['labmda']
+        self.transfer=params['transfer']
         self.test_user=test_user
         # self.learner=learner #super class has already set self.learner
         self.params=params
@@ -25,6 +26,10 @@ class Server(BaseFedarated):
         ## num_epochs should set 1 in HFfmaml
         loss_history=[]
         acc_history=[]
+        if self.transfer:
+            print('Loading tranfer params>>>>>>>>>>>>>>>>>>>>>>>>>>')
+            for c in self.clients:
+                c.set_params(load_weights(self.theta_c_path))
         for i in trange(self.num_rounds, desc='Round: ', ncols=120):
             # test model
             if i % self.eval_every == 0:

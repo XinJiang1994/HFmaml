@@ -10,6 +10,7 @@ from flearn.models.client import Client
 from tqdm import tqdm
 from scipy import io
 
+from main_HFfmaml import prepare_dataset
 from utils.utils import save_result
 
 os.environ['TF_CPP_MIN_LOG_LEVEL']='3'
@@ -63,6 +64,7 @@ def read_options():
     parser.add_argument('--adapt_num', default=1, help='mu_i for optimizer', type=int)
     parser.add_argument('--R', default=0, help='the R th test', type=int)
     parser.add_argument('--logdir', default='./log', help='the R th test', type=str)
+    parser.add_argument('--transfer', default=False, help='Pretrain to get theta_c', type=bool)
 
     try:
         parsed = vars(parser.parse_args())
@@ -132,53 +134,7 @@ def main():
 
     # parse command line arguments
     options, learner, optimizer = read_options()
-
-    # read data
-    if options['dataset'].startswith('cifar'):
-        data_path = os.path.join('data', options['dataset'], 'data')
-        # dataset = read_data_xin(data_path)  # return clients, groups, train_data, test_data
-        train_path = os.path.join('data', options['dataset'], 'data', 'train')
-        test_path = os.path.join('data', options['dataset'], 'data', 'test')
-        dataset = read_data(train_path, test_path)
-        num_class=10
-        if options['dataset']=='cifar100':
-            num_class=100
-
-        for user in dataset[0]:
-            for i in range(len(dataset[2][user]['y'])):
-                dataset[2][user]['x'][i] = reshape_features(dataset[2][user]['x'][i])
-                dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i],num_class)
-            for i in range(len(dataset[3][user]['y'])):
-                dataset[3][user]['x'][i] = reshape_features(dataset[3][user]['x'][i])
-                dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i],num_class)
-    elif options['dataset']=='Fmnist':
-        train_path = os.path.join('data', options['dataset'], 'data', 'train')
-        test_path = os.path.join('data', options['dataset'], 'data', 'test')
-        dataset = read_data(train_path, test_path) # return clients, groups, train_data, test_data
-        for user in dataset[0]:
-            for i in range(len(dataset[2][user]['y'])):
-                dataset[2][user]['x'][i] = reshapeFmnist(dataset[2][user]['x'][i])
-                dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i])
-            for i in range(len(dataset[3][user]['y'])):
-                dataset[3][user]['x'][i] = reshapeFmnist(dataset[3][user]['x'][i])
-                dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i])
-    else:
-        train_path = os.path.join('data', options['dataset'], 'data', 'train')
-        test_path = os.path.join('data', options['dataset'], 'data', 'test')
-        dataset = read_data(train_path, test_path)  # return clients, groups, train_data, test_data
-        # print(dataset[3]['f_00000']['y'])
-        # print('@main_HFfaml.py line 152####',dataset)
-
-        for user in dataset[0]:
-            for i in range(len(dataset[2][user]['y'])):
-                dataset[2][user]['y'][i] = reshape_label(dataset[2][user]['y'][i])
-            for i in range(len(dataset[3][user]['y'])):
-                dataset[3][user]['y'][i] = reshape_label(dataset[3][user]['y'][i])
-    random.seed(1)
-    # np.random.seed(123)
-    random.shuffle(dataset[0])
-    test_user = dataset[0][options['clients_per_round']:]
-    del dataset[0][options['clients_per_round']:]
+    test_user, dataset = prepare_dataset(options)
 
     # 、 o00000007理论 call appropriate trainer
     t = optimizer(options, learner, dataset,test_user)

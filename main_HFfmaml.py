@@ -64,7 +64,7 @@ def read_options():
     parser.add_argument('--sourceN', default=5, help='source node class num used', type=int)
     parser.add_argument('--R', default=0, help='the R th test', type=int)
     parser.add_argument('--logdir', default='./log', help='the R th test', type=str)
-
+    parser.add_argument('--transfer', default=False, help='Pretrain to get theta_c', type=bool)
 
     try: parsed = vars(parser.parse_args())
     except IOError as msg: parser.error(str(msg))
@@ -125,14 +125,14 @@ def reshapeFmnist(x):
     x=x.reshape(28,28,1)
     return x
 
-def prepare_dataset(options):
+def prepare_dataset(options,situation='normal_train'):
     # read data
     if options['dataset']=='cifar10' or options['dataset']=='cifar100':
         # data_path = os.path.join('data', options['dataset'], 'data')
         # dataset = read_data_xin(data_path)  # return clients, groups, train_data, test_data
         train_path = os.path.join('data', options['dataset'], 'data', 'train')
         test_path = os.path.join('data', options['dataset'], 'data', 'test')
-        if options['pretrain']:
+        if options['pretrain'] or situation=='forget_test':
             print('@@@@@@@@@@@@@@@@@using pretrained dataset')
             train_path = os.path.join('data', options['dataset'], 'data', 'pretrain')
             test_path = os.path.join('data', options['dataset'], 'data', 'pretest')
@@ -226,8 +226,10 @@ def main():
         save_weights(weight, w_names,theta_c_path)
 
     loss_test, acc_test = target_test(test_user,learner,dataset,options,weight)
+    loss_test_forget, acc_test_forget = target_test(test_user, learner, dataset, options, weight,situation='forget_test')
     tqdm.write(' Final loss: {}'.format(np.sum(loss_test)))
     print("Local average acc", np.sum(acc_test))
+    print("Forget_test average acc", np.sum(acc_test_forget))
     print("loss_save_path:", loss_save_path)
     print("acc_save_path:", acc_save_path)
     # save_result('./results/ThetaC_results.csv',[[options['labmda'],np.sum(acc_test),acc_save_path]],col_name=['Lambda','Accuracy','acc_save_path'])
@@ -235,11 +237,13 @@ def main():
                                'contrast_{}_{}_{}_L{}.csv'.format(options['model'], options['dataset'],
                                                                   options['optimizer'], options['num_epochs']))
 
-    save_result(result_path, [[options['labmda'], np.sum(acc_test), acc_save_path]],
-                col_name=['Lambda', 'Accuracy', 'acc_save_path'])
+    save_result(result_path, [[options['labmda'], np.sum(acc_test),np.sum(acc_test_forget), acc_save_path]],
+                col_name=['Lambda', 'Accuracy','Forget_acc', 'acc_save_path'])
 
 
-def target_test(test_user,learner,dataset,options,weight):
+def target_test(test_user,learner,dataset,options,weight,situation='normal_train'):
+    if situation=='forget_test':
+        test_user, dataset = prepare_dataset(options,situation)
     loss_test=dict()
     accs=dict()
     num_test=dict()
