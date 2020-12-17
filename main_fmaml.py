@@ -169,10 +169,9 @@ def main():
     print('$$$$$$$$$$$$$$$$$learner',learner)
 
     test_user, dataset = prepare_dataset(options)
-
-
     # call appropriate trainer
-    t = optimizer(options, learner, dataset,test_user)
+    theta_c_path = '/root/TC174611125/fmaml/fmaml_mac/theta_c/{}_theata_c.mat'.format(options['dataset'])
+    t = optimizer(options, learner,theta_c_path, dataset,test_user)
     loss_history,acc_history=t.train()
     loss_save_path='losses_OPT_{}_Dataset_{}_beta{}_round{}_L{}_R{}.mat'.format(options['optimizer'],
                                                                                 options['dataset'],

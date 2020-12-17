@@ -9,10 +9,11 @@ from ..utils.model_utils import load_weights
 
 
 class Server(BaseFedarated):
-    def __init__(self, params, learner, dataset,test_user):
+    def __init__(self, params, learner,theta_c_path, dataset,test_user):
         print('Using Federated MAML to Train')
         self.test_user=test_user
         # self.learner=learner
+        self.theta_c_path=theta_c_path
         self.params=params
         self.transfer = params['transfer']
         self.datasets_data=dataset #注意这里的dataset_data是真的dataset，还有一个self.dataset实际是dataset name

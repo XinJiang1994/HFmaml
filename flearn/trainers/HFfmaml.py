@@ -27,7 +27,7 @@ class Server(BaseFedarated):
         loss_history=[]
         acc_history=[]
         if self.transfer:
-            print('Loading tranfer params>>>>>>>>>>>>>>>>>>>>>>>>>>')
+            print('Loading tranfer params>>>>>>>>>>>>>>>>>>>>>>>>>>from ',self.theta_c_path)
             for c in self.clients:
                 c.set_params(load_weights(self.theta_c_path))
         for i in trange(self.num_rounds, desc='Round: ', ncols=120):

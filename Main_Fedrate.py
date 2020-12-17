@@ -65,6 +65,7 @@ def read_options():
     parser.add_argument('--R', default=0, help='the R th test', type=int)
     parser.add_argument('--logdir', default='./log', help='the R th test', type=str)
     parser.add_argument('--transfer', default=False, help='Pretrain to get theta_c', type=bool)
+    parser.add_argument('--pretrain', default=False, help='Pretrain to get theta_c', type=bool)
 
     try:
         parsed = vars(parser.parse_args())
@@ -137,7 +138,8 @@ def main():
     test_user, dataset = prepare_dataset(options)
 
     # 、 o00000007理论 call appropriate trainer
-    t = optimizer(options, learner, dataset,test_user)
+    theta_c_path = '/root/TC174611125/fmaml/fmaml_mac/theta_c/{}_theata_c.mat'.format(options['dataset'])
+    t = optimizer(options, learner,theta_c_path, dataset,test_user)
     loss_history,acc_history=t.train()
     loss_save_path='losses_OPT_{}_Dataset{}_round_{}_L{}_R{}.mat'.format(options['optimizer'],
                                                                      options['dataset'],
@@ -163,12 +165,29 @@ def main():
     client_params = t.latest_model
     weight = client_params
 
+    loss_test,acc_test=target_test(test_user, learner, dataset, options, weight)
+    loss_test_forget, acc_test_forget = target_test(test_user, learner, dataset, options, weight,situation='forget_test')
+    tqdm.write(' Final loss: {}'.format(np.sum(loss_test)))
+    print("Local average acc", np.sum(acc_test))
+    print("acc_test_forget acc", np.sum(acc_test_forget))
+
+    print('loss_save_path',loss_save_path)
+    print('acc_save_path', acc_save_path)
+    result_path = os.path.join(options['logdir'],
+                               'contrast_{}_{}_{}_L{}.csv'.format(options['model'], options['dataset'],
+                                                                  options['optimizer'], options['num_epochs']))
+    save_result(result_path, [[np.sum(acc_test),acc_test_forget, acc_save_path,loss_save_path]],
+                col_name=['Accuracy','acc_test_forget', 'acc_save_path','loss_save_path'])
+
+def target_test(test_user,learner,dataset,options,weight,situation='normal_train'):
+    if situation=='forget_test':
+        test_user, dataset = prepare_dataset(options,situation)
     loss_test = dict()
     accs = dict()
     num_test = dict()
     for i, user in enumerate(test_user):
         # print(dataset[2][user])
-        loss_test[i], accs[i], num_test[i] = fmaml_test(trainer=t, learner=learner, train_data=dataset[2][user],
+        loss_test[i], accs[i], num_test[i] = fmaml_test(learner=learner, train_data=dataset[2][user],
                                                      test_data=dataset[3][user],
                                                      params=options, user_name=user, weight=weight)
     loss_test = list(loss_test.values())
@@ -176,18 +195,9 @@ def main():
     num_test = list(num_test.values())
     loss_test = [l * n / np.sum(num_test) for l, n in zip(loss_test, num_test)]
     acc_test = [a * n / np.sum(num_test) for a, n in zip(accs, num_test)]
-    tqdm.write(' Final loss: {}'.format(np.sum(loss_test)))
-    print("Local average acc", np.sum(acc_test))
-    print('loss_save_path',loss_save_path)
-    print('acc_save_path', acc_save_path)
-    result_path = os.path.join(options['logdir'],
-                               'contrast_{}_{}_{}_L{}.csv'.format(options['model'], options['dataset'],
-                                                                  options['optimizer'], options['num_epochs']))
-    save_result(result_path, [[np.sum(acc_test), acc_save_path,loss_save_path]],
-                col_name=['Accuracy', 'acc_save_path','loss_save_path'])
+    return loss_test,acc_test
 
-
-def fmaml_test(trainer, learner, train_data, test_data, params, user_name, weight):
+def fmaml_test(learner, train_data, test_data, params, user_name, weight):
     print('fmaml test')
 
     # client_params = trainer.latest_model

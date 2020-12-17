@@ -18,7 +18,14 @@ def lrelu(x, leak=0.2, name="lrelu"):
 def load_weights(wPath='weights.mat'):
     params=io.loadmat(wPath)
     vars=list(params.values())[3:]
-    vars=[np.squeeze(x) for x in vars]
+    # print(vars[0].shape)
+    # print(vars[1].shape)
+    # vars=[np.squeeze(x,axis=0) for x in vars]
+    for i in range(len(vars)):
+        if vars[i].shape[0]==1:
+            vars[i]=np.squeeze(vars[i],axis=0)
+    # print('----------------------------')
+    # print(vars[2].shape)
     #print('@HFmaml line 85',vars)
     return vars
 

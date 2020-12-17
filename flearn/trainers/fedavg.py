@@ -7,11 +7,12 @@ from ..utils.model_utils import load_weights
 
 
 class Server(BaseFedarated):
-    def __init__(self, params, learner, dataset,test_user):
+    def __init__(self, params, learner,theta_c_path, dataset,test_user):
         print('Using Federated Average to Train')
         #self.inner_opt = tf.train.GradientDescentOptimizer(params['learning_rate'])
         self.opt1 = params['alpha']
         self.transfer = params['transfer']
+        self.theta_c_path=theta_c_path
         self.test_user = test_user
         # self.learner=learner #super class has already set self.learner
         self.params = params
@@ -42,8 +43,8 @@ class Server(BaseFedarated):
                 accs = [n / tot_sams * acc for n, acc in zip(stats_train[2], stats_train[3])]
 
                 acc_target='XXX'
-                acc_target = target_test2(self.test_user, self.learner, self.datasets_data, self.params,
-                                          self.latest_model)
+                # acc_target = target_test2(self.test_user, self.learner, self.datasets_data, self.params,
+                #                           self.latest_model)
 
                 # print('@HFmaml line32 stats_train:',stats_train[2:])
                 tqdm.write('At round {} training loss: {}; acc:{}, target acc: {}'.format(i,np.sum(losses),np.sum(accs),acc_target))

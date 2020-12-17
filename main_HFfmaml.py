@@ -154,6 +154,10 @@ def prepare_dataset(options,situation='normal_train'):
     elif options['dataset']=='Fmnist':
         train_path = os.path.join('data', options['dataset'], 'data', 'train')
         test_path = os.path.join('data', options['dataset'], 'data', 'test')
+        if options['pretrain'] or situation=='forget_test':
+            print('@@@@@@@@@@@@@@@@@using pretrained dataset')
+            train_path = os.path.join('data', options['dataset'], 'data', 'pretrain')
+            test_path = os.path.join('data', options['dataset'], 'data', 'pretest')
         dataset = read_data(train_path, test_path) # return clients, groups, train_data, test_data
         for user in dataset[0]:
             for i in range(len(dataset[2][user]['y'])):
@@ -179,10 +183,7 @@ def prepare_dataset(options,situation='normal_train'):
     random.seed(1)
     random.shuffle(dataset[0])
     test_user=dataset[0][options['clients_per_round']:]
-    print('@ main print test user:',test_user)
-
     del dataset[0][options['clients_per_round']:]
-
     return test_user, dataset
 
 def main():
@@ -218,6 +219,8 @@ def main():
     else:
         # weight=load_weights('{}_{}_trained_weights.mat'.format(options['dataset'],options['model']))
         weight = load_weights(theta_c_path)
+        options['w_i'] = 1
+        weight = learner(options).get_params()
 
     #save theta_c
     if options['pretrain'] and options['isTrain']:
@@ -242,7 +245,9 @@ def main():
 
 
 def target_test(test_user,learner,dataset,options,weight,situation='normal_train'):
+
     if situation=='forget_test':
+        print('Forget testing')
         test_user, dataset = prepare_dataset(options,situation)
     loss_test=dict()
     accs=dict()
